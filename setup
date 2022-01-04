@@ -6,7 +6,7 @@ sacct
 scontrol show partition short
 sinfo -p short --Format=time,nodes,cpus,socketcorethread,memory,nodeai,features
 
-srun --partition=short --nodes=1 --ntasks 1 --x11 --mem=2T --time=24:00:00 --cpus-per-task 110 --export=ALL --pty /bin/bash
+srun --partition=short --nodes=1 --ntasks 1 --x11 --mem=2T --time=24:00:00 --cpus-per-task 32 --export=ALL --pty /bin/bash
 
 #srun --partition=express --nodes=1 --ntasks 1 --x11 --mem=1T --time=00:60:00 --cpus-per-task 1 --export=ALL --pty /bin/bash
 
