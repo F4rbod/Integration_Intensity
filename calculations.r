@@ -26,6 +26,15 @@ left_join_pairs_list=function(x,y,by){
 #cluster
 #month=substr(carrier_data_2020$CLM_THRU_DT[1],5,6)
 
+
+
+
+
+
+
+
+
+
 #read data
 carrier_data_2013=read.fst("/work/postresearch/Shared/Projects/Data_fst/carrier_data_2013.fst")
 carrier_data_2014=read.fst("/work/postresearch/Shared/Projects/Data_fst/carrier_data_2014.fst")
@@ -56,6 +65,15 @@ outpatient_data_2019 = read.fst("/work/postresearch/Shared/Projects/Data_fst/out
 outpatient_data_2020 = read.fst("/work/postresearch/Shared/Projects/Data_fst/outpatient_data_2020.fst")
 
 
+
+
+
+
+
+
+
+
+#find total costs for patients accross files
 tot_carrier_finder=function(data){
 data%>%
     group_by(DESY_SORT_KEY)%>%
@@ -89,6 +107,15 @@ tot_allowed_inpatient=mclapply(X=list(inpatient_data_2013,inpatient_data_2014,in
 
 #angio_codes_old=c(93451,93452,93453,93454,93455,93456,93457,93458,93459,93460,93461,93462)
 
+
+
+
+
+
+
+
+
+#calculations per patient
 patient_calculator_carrier=function(data){
 
     require(tidyverse)
@@ -158,7 +185,15 @@ subset(carrier_data_2016,DESY_SORT_KEY==100013401)["LINE_ICD_DGNS_CD"]
 patient_carrier_calculations=mclapply(X=list(carrier_data_2013,carrier_data_2014,carrier_data_2015,carrier_data_2016,carrier_data_2017,carrier_data_2018,carrier_data_2019,carrier_data_2020), FUN=patient_calculator_carrier, mc.cores=31)
 save(patient_carrier_calculations, file="patient_carrier_calculations.RData")
 load(file="patient_carrier_calculations.RData")
-#find comorbidity
+
+
+
+
+
+
+
+
+#find comorbidities for patients
 #check for icd code types
 count_icds=function(data){
     data%>%
@@ -214,6 +249,114 @@ calculate_tot_allowed=function(data){
 patient_carrier_calculations=lapply(patient_carrier_calculations,calculate_tot_allowed)
 save(patient_carrier_calculations, file="patient_carrier_calculations_w_comorbidity.RData")
 load(file="patient_carrier_calculations_w_comorbidity.RData")
+
+
+
+
+
+
+
+
+
+
+#physician costs calculations.
+#Here, I will find the costs and utilizations of physicians of the important tests and procedures. Something close to what I did for patients.
+
+#I will find total cost of physian. This will be used to find total cost per patient. I can only do this for carrier data as the other ones do not have reliable NPI data.
+#I will dvide everything by the total number of unique patients they see
+
+physician_calculator_carrier=function(data,subset_patients){
+
+    require(tidyverse)
+
+    #from https://www.cms.gov/medicare-coverage-database/view/article.aspx?articleId=52850&ver=26 and https://www.aapc.com/codes/cpt-codes-range/93451-93533/10
+    angio_codes=c(93451,93452,93453,93454,93455,93456,93457,93458,93459,93460,93461,93462,93463,93464,93503,93505,93530,93531,93532,93533)
+    #from https://www.cms.gov/medicare-coverage-database/view/article.aspx?articleid=57326&ver=13&keyword=electrocardiogram&keywordType=starts&areaId=all&docType=NCA,CAL,NCD,MEDCAC,TA,MCD,6,3,5,1,F,P&contractOption=all&sortBy=relevance&bc=1
+    ecg_codes=c(93000,93005,93010,93040,93041,93042)
+    #from https://scct.org/page/CardiacCTCodes include CTangio
+    cardiac_ct_codes=c(75571,75572,75573,75574)
+    #from https://cardiacmri.com/tech-guide/cpt-codes-relevant-to-cardiac-mri/
+    cardiac_mri_codes=c(75557,75559,75561,75563,75565)
+    # from https://medicarepaymentandreimbursement.com/2011/07/cardiovascular-stress-testing-cpt-93015.html and https://www.aapc.com/codes/cpt-codes-range/93000-93050/
+    stress_test_codes=c(93015,93016,93017,93018)
+    #from https://www.aapc.com/codes/cpt-codes-range/93303-93356/20     includes stress echo
+    echocardiography_codes=c(93303,93304,93306,93307,93308,93312,93313,93314,93315,93316,93317,93318,93320,93321,93325,93350,93351,93356,93352,93355,93356)
+    #from https://www.aapc.com/codes/cpt-codes-range/92920-92979/ and https://www.cms.gov/medicare-coverage-database/view/article.aspx?articleId=57479#:~:text=CPT%20codes%2092928%2C%2092933%2C%2092929,are%20assigned%20to%20APC%200104.    includes balloon and stent
+    angioplasty_codes=c(92920,92921,92924,92925,92928,92929,92933,92934,92937,92938,92941,92943,92944,92973,92974,92975,92978,92979,93571,93572,"C9600","C9601","C9602","C9603","C9604","C9605","C9606","C9607","C9608")
+    #from https://www.medaxiom.com/clientuploads/webcast_handouts/Coding_for_CABG-Open_Heart_Procedures.pdf and https://www.aapc.com/codes/cpt-codes-range/33016-33999/10    did not include 33517-33530 since these are used in conjunction with 33533-33548 and not alone, did not include 33542,33545,33548 since these are also in conjunction )aneurismectomy and vsd resection
+    CABG_codes=c(33510,33511,33512,33513,33514,33516,33533,33534,33535,33536)
+
+    data=data%>%
+        group_by(DESY_SORT_KEY)%>%
+        mutate(
+            has_stable_angina=sum(ifelse(LINE_ICD_DGNS_VRSN_CD==0, c("I208","I209") %in% LINE_ICD_DGNS_CD, ifelse(LINE_ICD_DGNS_VRSN_CD==9,  "4139" %in% LINE_ICD_DGNS_CD,NA)))>0,
+            has_unstable_angina=sum(ifelse(LINE_ICD_DGNS_VRSN_CD==0, "I200" %in% LINE_ICD_DGNS_CD, ifelse(LINE_ICD_DGNS_VRSN_CD==9,  "4111" %in% LINE_ICD_DGNS_CD,NA)))>0,
+            has_MI=sum(if_else(LINE_ICD_DGNS_VRSN_CD==0, "I21" %in% substr(LINE_ICD_DGNS_CD,0,3), if_else(LINE_ICD_DGNS_VRSN_CD==9, "410" %in% substr(LINE_ICD_DGNS_CD,0,3),NA)))>0,
+            has_cardiac_arrest=sum(if_else(LINE_ICD_DGNS_VRSN_CD==0, "I46" %in% substr(LINE_ICD_DGNS_CD,0,3), if_else(LINE_ICD_DGNS_VRSN_CD==9, "4275" %in% LINE_ICD_DGNS_CD,NA)))>0
+        )
+
+
+    result=data%>%
+        filter(eval(parse(text=subset_patients)))%>%
+        mutate(
+            is_catheterization=HCPCS_CD %in% angio_codes,
+            is_ecg=HCPCS_CD %in% ecg_codes,
+            is_cardiac_ct=HCPCS_CD %in% cardiac_ct_codes,
+            is_cardiac_mri=HCPCS_CD %in% cardiac_mri_codes,
+            is_stress_test=HCPCS_CD %in% stress_test_codes,
+            is_echocardiography=HCPCS_CD %in% echocardiography_codes,
+            is_angioplasty=HCPCS_CD %in% angioplasty_codes,
+            is_CABG=HCPCS_CD %in% CABG_codes
+        )%>%
+        group_by(PRF_PHYSN_NPI)%>%
+        summarise(
+            year=substr(data$CLM_THRU_DT[1],0,4),
+            n_unique_patient=nrow(distinct(data.frame(DESY_SORT_KEY))),
+            n=n(),
+            tot_allowed=sum(LINE_ALOWD_CHRG_AMT)/n_unique_patient,
+            prp_with_stable_angina=sum(has_stable_angina,na.rm=T)/n,
+            prp_with_unstable_angina=sum(has_unstable_angina,na.rm=T)/n,
+            prp_with_MI=sum(has_MI,na.rm=T)/n,
+            prp_with_cardiac_arrest=sum(has_cardiac_arrest,na.rm=T)/n,
+            catheterization_count=sum(is_catheterization)/n_unique_patient,
+            catheterization_cost=sum(LINE_ALOWD_CHRG_AMT*is_catheterization)/n_unique_patient,
+            ecg_count=sum(is_ecg)/n_unique_patient,
+            ecg_cost=sum(LINE_ALOWD_CHRG_AMT*is_ecg)/n_unique_patient,
+            cardiac_ct_count=sum(is_cardiac_ct)/n_unique_patient,
+            cardiac_ct_cost=sum(LINE_ALOWD_CHRG_AMT*is_cardiac_ct)/n_unique_patient,
+            cardiac_mri_count=sum(is_cardiac_mri)/n_unique_patient,
+            cardiac_mri_cost=sum(LINE_ALOWD_CHRG_AMT*is_cardiac_mri)/n_unique_patient,
+            stress_test_count=sum(is_stress_test)/n_unique_patient,
+            stress_test_cost=sum(LINE_ALOWD_CHRG_AMT*is_stress_test)/n_unique_patient,
+            echocardiography_count=sum(is_echocardiography)/n_unique_patient,
+            echocardiography_cost=sum(LINE_ALOWD_CHRG_AMT*is_echocardiography)/n_unique_patient,
+            angioplasty_count=sum(is_angioplasty)/n_unique_patient,
+            angioplasty_cost=sum(LINE_ALOWD_CHRG_AMT*is_angioplasty)/n_unique_patient,
+            CABG_count=sum(is_CABG)/n_unique_patient,
+            CABG_cost=sum(LINE_ALOWD_CHRG_AMT*is_CABG)/n_unique_patient
+        )
+
+    return(result)
+}
+
+a=physician_calculator_carrier(carrier_data_2020[1:1000000,],subset_patients = "has_stable_angina")
+#data.frame(a)
+data.frame(a%>%arrange(desc(n_unique_patient)))
+
+
+physician_carrier_calculations_stable_angina=mclapply(X=list(carrier_data_2013,carrier_data_2014,carrier_data_2015,carrier_data_2016,carrier_data_2017,carrier_data_2018,carrier_data_2019,carrier_data_2020), FUN=physician_calculator_carrier,subset_patients = "has_stable_angina", mc.cores=15)
+
+physician_carrier_calculations_all_years_stable_angina=reduce(physician_carrier_calculations_stable_angina,rbind)
+
+write_fst(physician_carrier_calculations_all_years_stable_angina,"physician_carrier_calculations_all_years_stable_angina.fst")
+
+
+
+
+
+
+
+
 
 #find most commonly occuring physician and cardiologist
 patient_NPI_counts=function(data){
@@ -458,7 +601,8 @@ patient_calculations_with_integration=left_join(patient_calculations_with_integr
 write.csv(patient_calculations_with_integration,"patient_calculations_with_integration.csv")
 
 
-
+#physician costs calculations.
+#Here, I will find the costs and utilizations of physicians of the important tests and procedures. Something close to what I did for patients.
 
 
 
