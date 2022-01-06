@@ -11,6 +11,9 @@ library(icd)
 library(sqldf)
 library(zeallot)
 library(reshape)
+library(dtplyr)
+setDTthreads(32)
+
 patient_calculations_with_integration=read.csv("patient_calculations_with_integration.csv")
 physician_integration_results_all_years=read.csv("physician_integration_results_all_years.csv")
 
@@ -334,10 +337,15 @@ did_data_all_physicians_stable_angina=inner_join(physician_carrier_calculations_
 
 did_data_all_physicians_stable_angina$year=as.numeric(did_data_all_physicians_stable_angina$year)
 did_data_all_physicians_stable_angina$PRF_PHYSN_NPI=as.numeric(did_data_all_physicians_stable_angina$PRF_PHYSN_NPI)
+write_fst(did_data_all_physicians_stable_angina,"did_data_all_physicians_stable_angina.fst")
 
 did_data_all_physicians_stable_angina=subset(did_data_all_physicians_stable_angina,never_gone_back==T)
 did_data_cardiologists_stable_angina=subset(did_data_all_physicians_stable_angina,PRVDR_SPCLTY=="06")
-did_data_cardiologists_stable_angina=subset(did_data_all_physicians_stable_angina,n_unique_patient>=5)
+did_data_cardiologists_stable_angina=subset(did_data_cardiologists_stable_angina,n_unique_patient>=10)
+
+did_data_all_physicians_stable_angina_10=subset(did_data_all_physicians_stable_angina,n_unique_patient>=10)
+
+
 data.frame(subset(did_data_cardiologists_stable_angina,became_Integrated))
 
 
@@ -372,3 +380,97 @@ ggdid(agg.es)
 [36] "never_gone_back"          "first_integrated_on"
 >
 
+
+
+
+
+
+
+
+#descriptive comparisons before and after integration
+#here I will find all of the newly integrated physicians, pool their before and after stats together, and try to find some descriptive stats. I will need to adjust for inflation later.
+
+#read data
+patient_calculations_with_integration=read_fst("patient_calculations_with_integration.fst", as.data.table = T)
+
+physician_integration_results_all_years_changes_did=read_fst("physician_integration_results_all_years_changes_did.fst", as.data.table = T)
+
+physician_carrier_calculations_all_years_stable_angina=read_fst("physician_carrier_calculations_all_years_stable_angina.fst", as.data.table = T)
+
+
+newly_integrated_physicians=physician_integration_results_all_years_changes_did[first_integrated_on!=0]
+newly_integrated_physicians[,year:=as.character(year)]
+newly_integrated_cardiologists_stable_angina=newly_integrated_physicians[physician_carrier_calculations_all_years_stable_angina, on = .(PRF_PHYSN_NPI,year),nomatch=NULL][PRVDR_SPCLTY=="06"]
+
+before_after_on_stable_angina_summaries=newly_integrated_cardiologists_stable_angina[,relative_to_integration:=ifelse(year<first_integrated_on,"Before", ifelse(year==first_integrated_on,"On","After"))][,
+        .(
+            n=.N,
+            n_unique_patient=sum(na.rm=T,n_unique_patient)/.N,
+            sum_tot_allowed=sum(na.rm=T,tot_allowed)/.N,
+            catheterization=sum(na.rm=T,catheterization_count>0)/.N,
+            catheterization_count=sum(na.rm=T,catheterization_count)/.N,
+            catheterization_cost=sum(na.rm=T,catheterization_cost)/.N,
+            ecg=sum(na.rm=T,ecg_count>0)/.N,
+            ecg_count=sum(na.rm=T,ecg_count)/.N,
+            ecg_cost=sum(na.rm=T,ecg_cost)/.N,
+            cardiac_ct=sum(na.rm=T,cardiac_ct_count>0)/.N,
+            cardiac_ct_count=sum(na.rm=T,cardiac_ct_count)/.N,
+            cardiac_ct_cost=sum(na.rm=T,cardiac_ct_cost)/.N,
+            cardiac_mri=sum(na.rm=T,cardiac_mri_count>0)/.N,
+            cardiac_mri_count=sum(na.rm=T,cardiac_mri_count)/.N,
+            cardiac_mri_cost=sum(na.rm=T,cardiac_mri_cost)/.N,
+            stress_test=sum(na.rm=T,stress_test_count>0)/.N,
+            stress_test_count=sum(na.rm=T,stress_test_count)/.N,
+            stress_test_cost=sum(na.rm=T,stress_test_cost)/.N,
+            echocardiography=sum(na.rm=T,echocardiography_count>0)/.N,
+            echocardiography_count=sum(na.rm=T,echocardiography_count)/.N,
+            echocardiography_cost=sum(na.rm=T,echocardiography_cost)/.N,
+            angioplasty=sum(na.rm=T,angioplasty_count>0)/.N,
+            angioplasty_count=sum(na.rm=T,angioplasty_count)/.N,
+            angioplasty_cost=sum(na.rm=T,angioplasty_cost)/.N,
+            CABG=sum(na.rm=T,CABG_count>0)/.N,
+            CABG_count=sum(na.rm=T,CABG_count)/.N,
+            CABG_cost=sum(na.rm=T,CABG_cost)/.N,
+            cardiac_arrest=sum(na.rm=T,prp_with_cardiac_arrest)/.N,
+            unstable_angina=sum(na.rm=T,prp_with_unstable_angina)/.N,
+            MI=sum(na.rm=T,prp_with_MI)/.N
+        )
+    ,keyby=relative_to_integration]
+write.csv(before_after_on_stable_angina_summaries,"before_after_on_stable_angina_summaries.csv")
+
+per_year_stable_angina_summaries=newly_integrated_cardiologists_stable_angina[,year_relative_to_integration:=as.numeric(year)-as.numeric(first_integrated_on)][,
+        .(
+            n=.N,
+            n_unique_patient=sum(na.rm=T,n_unique_patient)/.N,
+            sum_tot_allowed=sum(na.rm=T,tot_allowed)/.N,
+            catheterization=sum(na.rm=T,catheterization_count>0)/.N,
+            catheterization_count=sum(na.rm=T,catheterization_count)/.N,
+            catheterization_cost=sum(na.rm=T,catheterization_cost)/.N,
+            ecg=sum(na.rm=T,ecg_count>0)/.N,
+            ecg_count=sum(na.rm=T,ecg_count)/.N,
+            ecg_cost=sum(na.rm=T,ecg_cost)/.N,
+            cardiac_ct=sum(na.rm=T,cardiac_ct_count>0)/.N,
+            cardiac_ct_count=sum(na.rm=T,cardiac_ct_count)/.N,
+            cardiac_ct_cost=sum(na.rm=T,cardiac_ct_cost)/.N,
+            cardiac_mri=sum(na.rm=T,cardiac_mri_count>0)/.N,
+            cardiac_mri_count=sum(na.rm=T,cardiac_mri_count)/.N,
+            cardiac_mri_cost=sum(na.rm=T,cardiac_mri_cost)/.N,
+            stress_test=sum(na.rm=T,stress_test_count>0)/.N,
+            stress_test_count=sum(na.rm=T,stress_test_count)/.N,
+            stress_test_cost=sum(na.rm=T,stress_test_cost)/.N,
+            echocardiography=sum(na.rm=T,echocardiography_count>0)/.N,
+            echocardiography_count=sum(na.rm=T,echocardiography_count)/.N,
+            echocardiography_cost=sum(na.rm=T,echocardiography_cost)/.N,
+            angioplasty=sum(na.rm=T,angioplasty_count>0)/.N,
+            angioplasty_count=sum(na.rm=T,angioplasty_count)/.N,
+            angioplasty_cost=sum(na.rm=T,angioplasty_cost)/.N,
+            CABG=sum(na.rm=T,CABG_count>0)/.N,
+            CABG_count=sum(na.rm=T,CABG_count)/.N,
+            CABG_cost=sum(na.rm=T,CABG_cost)/.N,
+            cardiac_arrest=sum(na.rm=T,prp_with_cardiac_arrest)/.N,
+            unstable_angina=sum(na.rm=T,prp_with_unstable_angina)/.N,
+            MI=sum(na.rm=T,prp_with_MI)/.N
+        )
+    ,keyby=year_relative_to_integration]
+
+write.csv(per_year_stable_angina_summaries,"per_year_stable_angina_summaries.csv")
