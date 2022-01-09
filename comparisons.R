@@ -1,9 +1,10 @@
 setwd("/work/postresearch/Shared/Projects/Farbod")
+packrat::off()
 library(tidyverse)
 library(parallel)
 library(data.table)
 options(max.print = 1000)
-numcores=32
+numcores=128
 library(fst)
 options(width=160)
 library(comorbidity)
@@ -12,7 +13,7 @@ library(sqldf)
 library(zeallot)
 library(reshape)
 library(dtplyr)
-setDTthreads(32)
+setDTthreads(numcores)
 
 patient_calculations_with_integration=read.csv("patient_calculations_with_integration.csv")
 physician_integration_results_all_years=read.csv("physician_integration_results_all_years.csv")
