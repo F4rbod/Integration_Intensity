@@ -246,46 +246,6 @@ ggsave(filename = "plot_mi_patients_cardiologist_comparisons_charlson.pdf",
 
 
 
->colnames(patient_calculations_with_integration)
-[1]"DESY_SORT_KEY","year"
-[3]"tot_allowed_carrier","stable_angina"
-[5]"unstable_angina","MI"
-[7]"catheterization","catheterization_count"
-[9]"catheterization_cost","ecg_count"
-[11]"ecg_cost","cardiac_ct_count"
-[13]"cardiac_ct_cost","cardiac_mri_count"
-[15]"cardiac_mri_cost","stress_test_count"
-[17]"stress_test_cost","echocardiography_count"
-[19]"echocardiography_cost","angioplasty_count"
-[21]"angioplasty_cost","CABG_count"
-[23]"CABG_cost","ami"
-[25]"chf","pvd"
-[27]"cevd","dementia"
-[29]"copd","rheumd"
-[31]"pud","mld"
-[33]"diab","diabwc"
-[35]"hp","rend"
-[37]"canc","msld"
-[39]"metacanc","aids"
-[41]"score","index"
-[43]"wscore","windex"
-[45]"tot_allowed_outpatient","tot_allowed_inpatient"
-[47]"total_allowed","most_common_phys"
-[49]"n_most_common_phys","most_common_cardiologists"
-[51]"n_most_common_cardiologists","cardiologists_specialty_code"
-[53]"most_common_interventional_cardiologists","n_most_common_interventional_cardiologists"
-[55]"interventional_cardiologists_specialty_code","most_common_phys_in_facility_prp"
-[57]"most_common_phys_is_integrated","most_common_phys_specialty_code"
-[59]"most_common_phys_became_Integrated","most_common_cardiologists_in_facility_prp"
-[61]"most_common_cardiologists_is_integrated","most_common_cardiologists_became_Integrated"
-[63]"most_common_interventional_cardiologists_in_facility_prp","most_common_interventional_cardiologists_is_integrated"
-[65]"most_common_interventional_cardiologists_became_Integrated"
-
-
-
-
-
-
 
 
 
@@ -370,18 +330,6 @@ ggdid(did_stable_angine)
 
 agg.es=aggte(did_stable_angine, type = "dynamic",na.rm=T)
 ggdid(agg.es)
-
- [1] "PRF_PHYSN_NPI"            "year"                     "n_unique_patient"         "n"                        "tot_allowed"
- [6] "prp_with_stable_angina"   "prp_with_unstable_angina" "prp_with_MI"              "prp_with_cardiac_arrest"  "catheterization_count"
-[11] "catheterization_cost"     "ecg_count"                "ecg_cost"                 "cardiac_ct_count"         "cardiac_ct_cost"
-[16] "cardiac_mri_count"        "cardiac_mri_cost"         "stress_test_count"        "stress_test_cost"         "echocardiography_count"
-[21] "echocardiography_cost"    "angioplasty_count"        "angioplasty_cost"         "CABG_count"               "CABG_cost"
-[26] "X"                        "in_facility_count"        "in_all_count"             "tot"                      "in_facility_prp"
-[31] "in_facility_prp_from_tot" "is_integrated"            "is_integrated_from_tot"   "PRVDR_SPCLTY"             "became_Integrated"
-[36] "never_gone_back"          "first_integrated_on"
->
-
-
 
 
 
@@ -475,3 +423,24 @@ per_year_stable_angina_summaries=newly_integrated_cardiologists_stable_angina[,y
     ,keyby=year_relative_to_integration]
 
 write.csv(per_year_stable_angina_summaries,"per_year_stable_angina_summaries.csv")
+
+
+
+
+
+
+
+
+
+
+#yearly comparisons
+#read data
+patient_calculations_with_integration=read_fst("patient_calculations_with_integration.fst", as.data.table = T)
+physician_integration_results_all_years_changes_did=read_fst("physician_integration_results_all_years_changes_did.fst", as.data.table = T)
+yearly_calculations_stable_angina
+yearly_calculations_unstable_angina
+
+yearly_calculations_stable_angina[patient_calculations_with_integration]
+
+colnames(patient_calculations_with_integration)
+patient_calculations_with_integration[,c(2,3,26:67)]
