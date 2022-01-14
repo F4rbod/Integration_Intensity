@@ -4,7 +4,7 @@ packrat::off()
 numcores=63
 
 options(max.print = 2000)
-options(width=130)
+options(width=80)
 
 library(tidyverse)
 library(parallel)
@@ -174,24 +174,29 @@ yearly_calculator=function(data,time_frame=365,diagnosis){
       as.data.table()}
   find_most_common_by_specialty=function(data,specialty_code){
     data%>%
-      filter(PRVDR_SPCLTY==specialty_code)%>%
+      filter(PRVDR_SPCLTY %in% specialty_code)%>%
       group_by(DESY_SORT_KEY)%>%
       arrange(.by_group=T,desc(n))%>%
       slice(1)%>%
       as.data.table()}
 
   most_common_physician=find_most_common(patient_NPI_counts)
+  #primary care = 01:general practice/ family practice:08/ internal medicine:11/ geriatrics:38
+  most_common_primary_care_physician=find_most_common_by_specialty(patient_NPI_counts,specialty_code = c("01","08","11","38"))
   most_common_cardiologists=find_most_common_by_specialty(patient_NPI_counts,specialty_code="06")
   most_common_interventional_cardiologists=find_most_common_by_specialty(patient_NPI_counts,specialty_code="C3")
 
   most_common_physician=data.frame(most_common_physician)%>%
     rename_with( ~ paste0("most_common_physician_", .x))
+  most_common_primary_care_physician=data.frame(most_common_primary_care_physician)%>%
+    rename_with( ~ paste0("most_common_primary_care_physician_", .x))  
   most_common_cardiologists=data.frame(most_common_cardiologists)%>%
     rename_with( ~ paste0("most_common_cardiologist_", .x))
   most_common_interventional_cardiologists=data.frame(most_common_interventional_cardiologists)%>%
     rename_with( ~ paste0("most_common_interventional_cardiologist_", .x))
 
   result=left_join(result,most_common_physician,by=c("DESY_SORT_KEY"="most_common_physician_DESY_SORT_KEY"))
+  result=left_join(result,most_common_primary_care_physician,by=c("DESY_SORT_KEY"="most_common_primary_care_physician_DESY_SORT_KEY"))
   result=left_join(result,most_common_cardiologists,by=c("DESY_SORT_KEY"="most_common_cardiologist_DESY_SORT_KEY"))
   result=left_join(result,most_common_interventional_cardiologists,by=c("DESY_SORT_KEY"="most_common_interventional_cardiologist_DESY_SORT_KEY"))
 
@@ -241,6 +246,18 @@ yearly_calculator=function(data,time_frame=365,diagnosis){
                 ,"most_common_physician_in_facility_prp_from_tot"
                 ,"most_common_physician_is_integrated"
                 ,"most_common_physician_is_integrated_from_tot"))
+
+  result=left_join(result,physician_integration_stats,
+                   by=c("most_common_primary_care_physician_PRF_PHYSN_NPI"="PRF_PHYSN_NPI","year_first_diagnosis"="year"))%>%as.data.table()
+
+  rename_last(result,7,
+              c("most_common_primary_care_physician_in_facility_count"
+                ,"most_common_primary_care_physician_in_all_count"
+                ,"most_common_primary_care_physician_tot"
+                ,"most_common_primary_care_physician_in_facility_prp"
+                ,"most_common_primary_care_physician_in_facility_prp_from_tot"
+                ,"most_common_primary_care_physician_is_integrated"
+                ,"most_common_primary_care_physician_is_integrated_from_tot"))
 
   result=left_join(result,physician_integration_stats,
                    by=c("most_common_cardiologist_PRF_PHYSN_NPI"="PRF_PHYSN_NPI","year_first_diagnosis"="year"))%>%as.data.table()
@@ -357,16 +374,25 @@ yearly_calculations_unstable_angina[is.na(number_of_hospitalizations)==T,`:=`(nu
 yearly_calculations_unstable_angina[is.na(tot_allowed_outpatient)==T,`:=`(tot_allowed_outpatient=0)]
 yearly_calculations_unstable_angina[is.na(tot_allowed_inpatient)==T,`:=`(tot_allowed_inpatient=0)]
 
-yearly_calculations_unstable_angina
+write.csv(yearly_calculations_stable_angina,"yearly_calculations_stable_angina.csv")
+write.csv(yearly_calculations_unstable_angina,"yearly_calculations_unstable_angina.csv")
 
 
+yearly_calculations_stable_angina_to_stata=data.frame(yearly_calculations_stable_angina)
+colnames(yearly_calculations_stable_angina_to_stata)[31:71]=c("physician_PRF_PHYSN_NPI","physician_n","physician_PRVDR_SPCLTY","primary_care_PRF_PHYSN_NPI","primary_care_n","primary_care_PRVDR_SPCLTY","cardiologist_PRF_PHYSN_NPI","cardiologist_n","cardiologist_PRVDR_SPCLTY","interventionist_PRF_PHYSN_NPI","interventionist_n","interventionist_PRVDR_SPCLTY","year_first_diagnosis","physician_in_facility_count","physician_in_all_count","physician_tot","physician_in_facility_prp","physician_in_facility_prp_from_tot","physician_integrated","physician_integrated_from_tot","primary_care_in_facility_count","primary_care_in_all_count","primary_care_tot","primary_care_in_facility_prp","primary_care_in_facility_prp_from_tot","primary_care_integrated","primary_care_integrated_from_tot","cardiologist_in_facility_count","cardiologist_in_all_count","cardiologist_tot","cardiologist_in_facility_prp","cardiologist_in_facility_prp_from_tot","cardiologist_integrated","cardiologist_integrated_from_tot","interventionist_in_facility_cnt","interventionist_in_all_count","interventionist_tot","interventionist_in_facility_prp","interventionist_in_facility_prp_from_tot","interventionist_integrated","interventionist_integrated_from_tot")
 
+yearly_calculations_stable_angina_to_stata=yearly_calculations_stable_angina_to_stata[,-c(48,50,55,57,62,64,69,71)]
 
+yearly_calculations_unstable_angina_to_stata=data.frame(yearly_calculations_unstable_angina)
+colnames(yearly_calculations_unstable_angina_to_stata)[31:71]=c("physician_PRF_PHYSN_NPI","physician_n","physician_PRVDR_SPCLTY","primary_care_PRF_PHYSN_NPI","primary_care_n","primary_care_PRVDR_SPCLTY","cardiologist_PRF_PHYSN_NPI","cardiologist_n","cardiologist_PRVDR_SPCLTY","interventionist_PRF_PHYSN_NPI","interventionist_n","interventionist_PRVDR_SPCLTY","year_first_diagnosis","physician_in_facility_count","physician_in_all_count","physician_tot","physician_in_facility_prp","physician_in_facility_prp_from_tot","physician_integrated","physician_integrated_from_tot","primary_care_in_facility_count","primary_care_in_all_count","primary_care_tot","primary_care_in_facility_prp","primary_care_in_facility_prp_from_tot","primary_care_integrated","primary_care_integrated_from_tot","cardiologist_in_facility_count","cardiologist_in_all_count","cardiologist_tot","cardiologist_in_facility_prp","cardiologist_in_facility_prp_from_tot","cardiologist_integrated","cardiologist_integrated_from_tot","interventionist_in_facility_cnt","interventionist_in_all_count","interventionist_tot","interventionist_in_facility_prp","interventionist_in_facility_prp_from_tot","interventionist_integrated","interventionist_integrated_from_tot")
 
+yearly_calculations_unstable_angina_to_stata=yearly_calculations_unstable_angina_to_stata[,-c(48,50,55,57,62,64,69,71)]
 
-
-
-
+library(foreign)
+library(rio)
+library(haven)
+write_dta(yearly_calculations_stable_angina_to_stata, "yearly_calculations_stable_angina.dta" , version=15)
+write_dta(yearly_calculations_unstable_angina_to_stata, "yearly_calculations_unstable_angina.dta" , version=15)
 
 #comparisons
 #I will compare the patients who were treated by the integrated vs non-integrated physicians, cardiologists and interventionists during the study period. Year 2013 did not divide cardiologists and inteventionists. So, We will not include this year in our comparisons of cardiologists and inteventionists.
@@ -414,6 +440,7 @@ intensity_comparator=function(data,grouping_var){
       ,CABG_count=sum(na.rm=T,CABG_count)/n()
       ,CABG_cost=sum(na.rm=T,CABG_cost)/n(),
       most_common_physician_is_integrated=sum(na.rm=T,most_common_physician_is_integrated)/n(),
+      most_common_primary_care_physician_is_integrated=sum(na.rm=T,most_common_primary_care_physician_is_integrated)/n(),
       most_common_cardiologist_is_integrated=sum(na.rm=T,most_common_cardiologist_is_integrated)/n(),
       most_common_interventional_cardiologist_is_integrated=sum(na.rm=T,most_common_interventional_cardiologist_is_integrated)/n(),
     )%>%
@@ -423,8 +450,11 @@ intensity_comparator=function(data,grouping_var){
 }
 
 #comparisons for stable angina patients
-stable_angina_physician_comparisons=intensity_comparator(yearly_calculations_stable_angina,"most_common_physician_is_integrated")
+stable_angina_physician_comparisons=intensity_comparator(yearly_calculations_stable_angina[year_first_diagnosis!=2013],"most_common_physician_is_integrated")
 write.csv(stable_angina_physician_comparisons,"stable_angina_physician_comparisons.csv")
+
+stable_angina_primary_care_comparisons=intensity_comparator(yearly_calculations_stable_angina[year_first_diagnosis!=2013],"most_common_primary_care_physician_is_integrated")
+write.csv(stable_angina_primary_care_comparisons,"stable_angina_primary_care_comparisons.csv")
 
 stable_angina_cardiologist_comparisons=intensity_comparator(yearly_calculations_stable_angina[year_first_diagnosis!=2013],"most_common_cardiologist_is_integrated")
 write.csv(stable_angina_cardiologist_comparisons,"stable_angina_cardiologist_comparisons.csv")
@@ -434,8 +464,11 @@ write.csv(stable_angina_interventional_cardiologist_comparisons,"stable_angina_i
 
 
 #comparisons for unstable angina patients
-unstable_angina_physician_comparisons=intensity_comparator(yearly_calculations_unstable_angina,"most_common_physician_is_integrated")
+unstable_angina_physician_comparisons=intensity_comparator(yearly_calculations_unstable_angina[year_first_diagnosis!=2013],"most_common_physician_is_integrated")
 write.csv(unstable_angina_physician_comparisons,"unstable_angina_physician_comparisons.csv")
+
+unstable_angina_primary_care_comparisons=intensity_comparator(yearly_calculations_unstable_angina[year_first_diagnosis!=2013],"most_common_primary_care_physician_is_integrated")
+write.csv(unstable_angina_primary_care_comparisons,"unstable_angina_primary_care_comparisons.csv")
 
 unstable_angina_cardiologist_comparisons=intensity_comparator(yearly_calculations_unstable_angina[year_first_diagnosis!=2013],"most_common_cardiologist_is_integrated")
 write.csv(unstable_angina_cardiologist_comparisons,"unstable_angina_cardiologist_comparisons.csv")
@@ -444,3 +477,278 @@ unstable_angina_interventional_cardiologist_comparisons=intensity_comparator(yea
 write.csv(unstable_angina_interventional_cardiologist_comparisons,"unstable_angina_interventional_cardiologist_comparisons.csv")
 
 
+#Because of the probability that some of the differences in the utilization in unstable and stable angina were because of MI and its difference between integrated and non-integrated docs, we will do pure analyses too of patients who only had stable or unstable angina without MI.
+
+intensity_comparator_pure_stable_angina=function(data,grouping_var){
+  require(tidyverse)
+  result=data%>%
+    filter(unstable_angina+MI==0)%>%
+    group_by(eval(parse(text=grouping_var)))%>%
+    summarise(
+      n=n(),
+      total_exp=sum(na.rm=T,total_exp)/n(),
+      tot_allowed_inpatient=sum(na.rm=T,tot_allowed_inpatient)/n(),
+      tot_allowed_outpatient=sum(na.rm=T,tot_allowed_outpatient)/n(),
+      tot_allowed_carrier=sum(na.rm=T,tot_allowed)/n(),
+      stable_angina=sum(na.rm=T,stable_angina)/n(),
+      unstable_angina=sum(na.rm=T,unstable_angina)/n(),
+      MI=sum(na.rm=T,MI)/n(),
+      cardiac_arrest=sum(na.rm=T,cardiac_arrest)/n(),
+      stroke=sum(na.rm=T,stroke)/n(),
+      mean_weighted_charlson=mean(wscore,na.rm=T),
+      number_of_hospitalizations=sum(na.rm=T,number_of_hospitalizations)/n(),
+      hospitalized_patients=sum(na.rm=T,was_hospitalized)/n()
+      ,catheterization=sum(na.rm=T,catheterization_count>0)/n()
+      ,catheterization_count=sum(na.rm=T,catheterization_count)/n()
+      ,catheterization_cost=sum(na.rm=T,catheterization_cost)/n()
+      ,ecg=sum(na.rm=T,ecg_count>0)/n()
+      ,ecg_count=sum(na.rm=T,ecg_count)/n()
+      ,ecg_cost=sum(na.rm=T,ecg_cost)/n()
+      ,cardiac_ct=sum(na.rm=T,cardiac_ct_count>0)/n()
+      ,cardiac_ct_count=sum(na.rm=T,cardiac_ct_count)/n()
+      ,cardiac_ct_cost=sum(na.rm=T,cardiac_ct_cost)/n()
+      ,cardiac_mri=sum(na.rm=T,cardiac_mri_count>0)/n()
+      ,cardiac_mri_count=sum(na.rm=T,cardiac_mri_count)/n()
+      ,cardiac_mri_cost=sum(na.rm=T,cardiac_mri_cost)/n()
+      ,stress_test=sum(na.rm=T,stress_test_count>0)/n()
+      ,stress_test_count=sum(na.rm=T,stress_test_count)/n()
+      ,stress_test_cost=sum(na.rm=T,stress_test_cost)/n()
+      ,echocardiography=sum(na.rm=T,echocardiography_count>0)/n()
+      ,echocardiography_count=sum(na.rm=T,echocardiography_count)/n()
+      ,echocardiography_cost=sum(na.rm=T,echocardiography_cost)/n()
+      ,angioplasty=sum(na.rm=T,angioplasty_count>0)/n()
+      ,angioplasty_count=sum(na.rm=T,angioplasty_count)/n()
+      ,angioplasty_cost=sum(na.rm=T,angioplasty_cost)/n()
+      ,CABG=sum(na.rm=T,CABG_count>0)/n()
+      ,CABG_count=sum(na.rm=T,CABG_count)/n()
+      ,CABG_cost=sum(na.rm=T,CABG_cost)/n(),
+      most_common_physician_is_integrated=sum(na.rm=T,most_common_physician_is_integrated)/n(),
+      most_common_primary_care_physician_is_integrated=sum(na.rm=T,most_common_primary_care_physician_is_integrated)/n(),
+      most_common_cardiologist_is_integrated=sum(na.rm=T,most_common_cardiologist_is_integrated)/n(),
+      most_common_interventional_cardiologist_is_integrated=sum(na.rm=T,most_common_interventional_cardiologist_is_integrated)/n(),
+    )%>%
+    as.data.table()
+  setnames(result, "eval(parse(text = grouping_var))", grouping_var)
+  return(as.data.table(result))
+}
+
+
+#pure comparisons for stable angina patients
+stable_angina_physician_pure_comparisons=intensity_comparator_pure_stable_angina(yearly_calculations_stable_angina[year_first_diagnosis!=2013],"most_common_physician_is_integrated")
+write.csv(stable_angina_physician_pure_comparisons,"stable_angina_physician_pure_comparisons.csv")
+
+stable_angina_primary_care_pure_comparisons=intensity_comparator_pure_stable_angina(yearly_calculations_stable_angina[year_first_diagnosis!=2013],"most_common_primary_care_physician_is_integrated")
+write.csv(stable_angina_primary_care_pure_comparisons,"stable_angina_primary_care_pure_comparisons.csv")
+
+stable_angina_cardiologist_pure_comparisons=intensity_comparator_pure_stable_angina(yearly_calculations_stable_angina[year_first_diagnosis!=2013],"most_common_cardiologist_is_integrated")
+write.csv(stable_angina_cardiologist_pure_comparisons,"stable_angina_cardiologist_pure_comparisons.csv")
+
+stable_angina_interventional_cardiologist_pure_comparisons=intensity_comparator_pure_stable_angina(yearly_calculations_stable_angina[year_first_diagnosis!=2013],"most_common_interventional_cardiologist_is_integrated")
+write.csv(stable_angina_interventional_cardiologist_pure_comparisons,"stable_angina_interventional_cardiologist_pure_comparisons.csv")
+
+#for unstable, I will only exclude MI, as it is okay if a patient progresses from stable to unstable, and only picking unstable might cause more people with earlier heart conditions to get selected.
+intensity_comparator_pure_unstable_angina=function(data,grouping_var){
+  require(tidyverse)
+  result=data%>%
+    filter(MI==0)%>%
+    group_by(eval(parse(text=grouping_var)))%>%
+    summarise(
+      n=n(),
+      total_exp=sum(na.rm=T,total_exp)/n(),
+      tot_allowed_inpatient=sum(na.rm=T,tot_allowed_inpatient)/n(),
+      tot_allowed_outpatient=sum(na.rm=T,tot_allowed_outpatient)/n(),
+      tot_allowed_carrier=sum(na.rm=T,tot_allowed)/n(),
+      stable_angina=sum(na.rm=T,stable_angina)/n(),
+      unstable_angina=sum(na.rm=T,unstable_angina)/n(),
+      MI=sum(na.rm=T,MI)/n(),
+      cardiac_arrest=sum(na.rm=T,cardiac_arrest)/n(),
+      stroke=sum(na.rm=T,stroke)/n(),
+      mean_weighted_charlson=mean(wscore,na.rm=T),
+      number_of_hospitalizations=sum(na.rm=T,number_of_hospitalizations)/n(),
+      hospitalized_patients=sum(na.rm=T,was_hospitalized)/n()
+      ,catheterization=sum(na.rm=T,catheterization_count>0)/n()
+      ,catheterization_count=sum(na.rm=T,catheterization_count)/n()
+      ,catheterization_cost=sum(na.rm=T,catheterization_cost)/n()
+      ,ecg=sum(na.rm=T,ecg_count>0)/n()
+      ,ecg_count=sum(na.rm=T,ecg_count)/n()
+      ,ecg_cost=sum(na.rm=T,ecg_cost)/n()
+      ,cardiac_ct=sum(na.rm=T,cardiac_ct_count>0)/n()
+      ,cardiac_ct_count=sum(na.rm=T,cardiac_ct_count)/n()
+      ,cardiac_ct_cost=sum(na.rm=T,cardiac_ct_cost)/n()
+      ,cardiac_mri=sum(na.rm=T,cardiac_mri_count>0)/n()
+      ,cardiac_mri_count=sum(na.rm=T,cardiac_mri_count)/n()
+      ,cardiac_mri_cost=sum(na.rm=T,cardiac_mri_cost)/n()
+      ,stress_test=sum(na.rm=T,stress_test_count>0)/n()
+      ,stress_test_count=sum(na.rm=T,stress_test_count)/n()
+      ,stress_test_cost=sum(na.rm=T,stress_test_cost)/n()
+      ,echocardiography=sum(na.rm=T,echocardiography_count>0)/n()
+      ,echocardiography_count=sum(na.rm=T,echocardiography_count)/n()
+      ,echocardiography_cost=sum(na.rm=T,echocardiography_cost)/n()
+      ,angioplasty=sum(na.rm=T,angioplasty_count>0)/n()
+      ,angioplasty_count=sum(na.rm=T,angioplasty_count)/n()
+      ,angioplasty_cost=sum(na.rm=T,angioplasty_cost)/n()
+      ,CABG=sum(na.rm=T,CABG_count>0)/n()
+      ,CABG_count=sum(na.rm=T,CABG_count)/n()
+      ,CABG_cost=sum(na.rm=T,CABG_cost)/n(),
+      most_common_physician_is_integrated=sum(na.rm=T,most_common_physician_is_integrated)/n(),
+      most_common_primary_care_physician_is_integrated=sum(na.rm=T,most_common_primary_care_physician_is_integrated)/n(),
+      most_common_cardiologist_is_integrated=sum(na.rm=T,most_common_cardiologist_is_integrated)/n(),
+      most_common_interventional_cardiologist_is_integrated=sum(na.rm=T,most_common_interventional_cardiologist_is_integrated)/n(),
+    )%>%
+    as.data.table()
+  setnames(result, "eval(parse(text = grouping_var))", grouping_var)
+  return(as.data.table(result))
+}
+#pure comparisons for unstable angina patients
+unstable_angina_physician_pure_comparisons=intensity_comparator_pure_unstable_angina(yearly_calculations_unstable_angina[year_first_diagnosis!=2013],"most_common_physician_is_integrated")
+write.csv(unstable_angina_physician_pure_comparisons,"unstable_angina_physician_pure_comparisons.csv")
+
+unstable_angina_primary_care_pure_comparisons=intensity_comparator_pure_unstable_angina(yearly_calculations_unstable_angina[year_first_diagnosis!=2013],"most_common_primary_care_physician_is_integrated")
+write.csv(unstable_angina_primary_care_pure_comparisons,"unstable_angina_primary_care_pure_comparisons.csv")
+
+unstable_angina_cardiologist_pure_comparisons=intensity_comparator_pure_unstable_angina(yearly_calculations_unstable_angina[year_first_diagnosis!=2013],"most_common_cardiologist_is_integrated")
+write.csv(unstable_angina_cardiologist_pure_comparisons,"unstable_angina_cardiologist_pure_comparisons.csv")
+
+unstable_angina_interventional_cardiologist_pure_comparisons=intensity_comparator_pure_unstable_angina(yearly_calculations_unstable_angina[year_first_diagnosis!=2013],"most_common_interventional_cardiologist_is_integrated")
+write.csv(unstable_angina_interventional_cardiologist_pure_comparisons,"unstable_angina_interventional_cardiologist_pure_comparisons.csv")
+
+library(fmsb)
+
+
+#spider plots
+#primary care
+library(fmsb)
+
+stable_angina_primary_care_pure_comparisons_costs=data.frame(stable_angina_primary_care_pure_comparisons[c(2,3),
+                                                                                              .(total_exp,tot_allowed_inpatient,tot_allowed_outpatient,tot_allowed_carrier,
+                                                                                                cardiac_arrest,
+                                                                                                stroke,
+                                                                                                hospitalized_patients,
+                                                                                                catheterization,
+                                                                                                stress_test,
+                                                                                                echocardiography,
+                                                                                                CABG)])
+max_min_values=data.frame(total_exp=c(200000,20000),
+                          tot_allowed_inpatient=c(100000,10000),
+                          tot_allowed_outpatient=c(100000,10000),
+                          tot_allowed_carrier=c(10000,1000),
+                          cardiac_arrest=c(0.03,0),
+                          stroke=c(0.1,0),
+                          hospitalized_patients=c(1,0),
+                          catheterization=c(1,0),
+                          stress_test=c(1,0),
+                          echocardiography=c(1,0),
+                          CABG=c(0.05,0))
+stable_angina_primary_care_pure_comparisons_costs=rbind(max_min_values,stable_angina_primary_care_pure_comparisons_costs)
+
+areas = c("#3E8E7E", "#FABB51")
+radarchart(data.frame(stable_angina_primary_care_pure_comparisons_costs),
+           cglty = 1,       # Grid line type
+           cglcol = "gray", # Grid line color
+           pcol = 2:4,      # Color for each line
+           plwd = 2,        # Width for each line
+           plty = 1,        # Line type for each line
+           pfcol = areas,   # Color of the areas
+           axistype = 2,
+
+)
+
+legend("topright",
+       legend = c("Independent","Integrated"),
+       bty = "n", pch = 20, col = areas,
+       text.col = "grey25", pt.cex = 2))
+ggsave(filename = "stable_patients_cardiologist_comparisons.pdf",
+       plot = print(
+radarchart(data.frame(stable_angina_primary_care_pure_comparisons_costs),
+           cglty = 1,       # Grid line type
+           cglcol = "gray", # Grid line color
+           pcol = 2:4,      # Color for each line
+           plwd = 2,        # Width for each line
+           plty = 1,        # Line type for each line
+           pfcol = areas,   # Color of the areas
+           axistype = 2, ),
+device = cairo_pdf , height = 8, width = 10)
+
+
+
+
+#cardiologist
+stable_angina_cardiologist_pure_comparisons_costs=data.frame(stable_angina_cardiologist_pure_comparisons[c(2,3),
+                                                                                              .(total_exp,tot_allowed_inpatient,tot_allowed_outpatient,tot_allowed_carrier,
+                                                                                                cardiac_arrest,
+                                                                                                stroke,
+                                                                                                hospitalized_patients,
+                                                                                                catheterization,
+                                                                                                stress_test,
+                                                                                                echocardiography,
+                                                                                                CABG)])
+max_min_values=data.frame(total_exp=c(200000,20000),
+                          tot_allowed_inpatient=c(100000,10000),
+                          tot_allowed_outpatient=c(100000,10000),
+                          tot_allowed_carrier=c(10000,1000),
+                          cardiac_arrest=c(0.03,0),
+                          stroke=c(0.1,0),
+                          hospitalized_patients=c(1,0),
+                          catheterization=c(1,0),
+                          stress_test=c(1,0),
+                          echocardiography=c(1,0),
+                          CABG=c(0.05,0))
+stable_angina_cardiologist_pure_comparisons_costs=rbind(max_min_values,stable_angina_cardiologist_pure_comparisons_costs)
+
+areas = c("#3E8E7E", "#FABB51")
+radarchart(data.frame(stable_angina_cardiologist_pure_comparisons_costs),
+           cglty = 1,       # Grid line type
+           cglcol = "gray", # Grid line color
+           pcol = 2:4,      # Color for each line
+           plwd = 2,        # Width for each line
+           plty = 1,        # Line type for each line
+           pfcol = areas,   # Color of the areas
+           axistype = 2,
+
+)
+
+legend("topright",
+       legend = c("Independent","Integrated"),
+       bty = "n", pch = 20, col = areas,
+       text.col = "grey25", pt.cex = 2))
+
+
+#interventionists
+stable_angina_interventional_cardiologist_pure_comparisons_costs=data.frame(stable_angina_interventional_cardiologist_pure_comparisons[c(2,3),
+                                                                                              .(total_exp,tot_allowed_inpatient,tot_allowed_outpatient,tot_allowed_carrier,
+                                                                                                cardiac_arrest,
+                                                                                                stroke,
+                                                                                                hospitalized_patients,
+                                                                                                catheterization,
+                                                                                                stress_test,
+                                                                                                echocardiography,
+                                                                                                CABG)])
+max_min_values=data.frame(total_exp=c(200000,20000),
+                          tot_allowed_inpatient=c(100000,10000),
+                          tot_allowed_outpatient=c(100000,10000),
+                          tot_allowed_carrier=c(10000,1000),
+                          cardiac_arrest=c(0.03,0),
+                          stroke=c(0.1,0),
+                          hospitalized_patients=c(1,0),
+                          catheterization=c(1,0),
+                          stress_test=c(1,0),
+                          echocardiography=c(1,0),
+                          CABG=c(0.05,0))
+stable_angina_interventional_cardiologist_pure_comparisons_costs=rbind(max_min_values,stable_angina_interventional_cardiologist_pure_comparisons_costs)
+
+areas = c("#3E8E7E", "#FABB51")
+radarchart(data.frame(stable_angina_interventional_cardiologist_pure_comparisons_costs),
+           cglty = 1,       # Grid line type
+           cglcol = "gray", # Grid line color
+           pcol = 2:4,      # Color for each line
+           plwd = 2,        # Width for each line
+           plty = 1,        # Line type for each line
+           pfcol = areas,   # Color of the areas
+           axistype = 2,
+
+)
+
+legend("topright",
+       legend = c("Independent","Integrated"),
+       bty = "n", pch = 20, col = areas,
+       text.col = "grey25", pt.cex = 2))
