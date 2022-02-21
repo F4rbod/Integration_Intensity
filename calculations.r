@@ -9,7 +9,6 @@ options(width=150)
 library(tidyverse)
 library(parallel)
 library(data.table)
-setDTthreads(numcores)
 library(fst)
 library(comorbidity)
 #library(icd)
@@ -17,6 +16,8 @@ library(sqldf)
 library(zeallot)
 library(reshape)
 library(dtplyr)
+
+setDTthreads(numcores)
 
 left_join_pairs_list=function(x,y,by){
     l=length(x)

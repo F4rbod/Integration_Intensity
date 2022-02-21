@@ -9,12 +9,14 @@ options(width=80)
 library(tidyverse)
 library(parallel)
 library(data.table)
-setDTthreads(numcores)
 library(fst)
 library(comorbidity)
 library(zeallot)
 library(reshape)
 library(dtplyr)
+library(haven)
+
+setDTthreads(numcores)
 
 
 #calculations per patient with 1 year limits from diagnoses of stable/unstable angina and MI
@@ -73,6 +75,7 @@ yearly_calculator=function(data,time_frame=365,diagnosis){
   CABG_codes=c(33510,33511,33512,33513,33514,33516,33533,33534,33535,33536)
   #from http://www.icd9data.com/2015/Volume1/390-459/430-438/default.htm and https://www.icd10data.com/ICD10CM/Codes/I00-I99/I60-I69/I63-
   stroke_icd_9_codes=c(43301,43311,43321,43331,43381,43391,43401,43411,43491)
+  office_visit_codes=c("99201","99202","99203","99204","99205","99211","99212","99213","99214","99215")
 
 
   result=data%>%
@@ -97,7 +100,7 @@ yearly_calculator=function(data,time_frame=365,diagnosis){
     filter(date-first_diagnosis>=0 & date-first_diagnosis<time_frame,.preserve = T)%>%
     summarise(
       first_diagnosis=unique(first_diagnosis),
-      tot_allowed=sum(na.rm = T,LINE_ALOWD_CHRG_AMT),
+      tot_allowed_carrier=sum(na.rm = T,LINE_ALOWD_CHRG_AMT),
       catheterization_count=sum(na.rm = T,is_catheterization),
       catheterization_cost=sum(na.rm = T,LINE_ALOWD_CHRG_AMT*is_catheterization),
       ecg_count=sum(na.rm = T,is_ecg),
@@ -189,7 +192,7 @@ yearly_calculator=function(data,time_frame=365,diagnosis){
   most_common_physician=data.frame(most_common_physician)%>%
     rename_with( ~ paste0("most_common_physician_", .x))
   most_common_primary_care_physician=data.frame(most_common_primary_care_physician)%>%
-    rename_with( ~ paste0("most_common_primary_care_physician_", .x))  
+    rename_with( ~ paste0("most_common_primary_care_physician_", .x))
   most_common_cardiologists=data.frame(most_common_cardiologists)%>%
     rename_with( ~ paste0("most_common_cardiologist_", .x))
   most_common_interventional_cardiologists=data.frame(most_common_interventional_cardiologists)%>%
@@ -333,7 +336,7 @@ inpatient_tot_yearly=yearly_calculator_inpatient(intpatient_data_all_years_stabl
 yearly_calculations_stable_angina=left_join(yearly_calcualtions_carrier_stable_angina, outpatient_tot_yearly, by="DESY_SORT_KEY")%>%as.data.table()
 yearly_calculations_stable_angina=left_join(yearly_calculations_stable_angina, inpatient_tot_yearly, by="DESY_SORT_KEY")%>%as.data.table()
 #finding the total expenditure in one year
-yearly_calculations_stable_angina[,total_exp:=sum(tot_allowed,tot_allowed_outpatient,tot_allowed_inpatient,na.rm = T),by=DESY_SORT_KEY]
+yearly_calculations_stable_angina[,total_exp:=sum(tot_allowed_carrier,tot_allowed_outpatient,tot_allowed_inpatient,na.rm = T),by=DESY_SORT_KEY]
 yearly_calculations_stable_angina[is.na(number_of_hospitalizations)==T,`:=`(number_of_hospitalizations=0,was_hospitalized=0)]
 yearly_calculations_stable_angina[is.na(tot_allowed_outpatient)==T,`:=`(tot_allowed_outpatient=0)]
 yearly_calculations_stable_angina[is.na(tot_allowed_inpatient)==T,`:=`(tot_allowed_inpatient=0)]
@@ -369,7 +372,7 @@ inpatient_tot_yearly=yearly_calculator_inpatient(intpatient_data_all_years_unsta
 yearly_calculations_unstable_angina=left_join(yearly_calcualtions_carrier_unstable_angina, outpatient_tot_yearly, by="DESY_SORT_KEY")%>%as.data.table()
 yearly_calculations_unstable_angina=left_join(yearly_calculations_unstable_angina, inpatient_tot_yearly, by="DESY_SORT_KEY")%>%as.data.table()
 #finding the total expenditure in one year
-yearly_calculations_unstable_angina[,total_exp:=sum(tot_allowed,tot_allowed_outpatient,tot_allowed_inpatient,na.rm = T),by=DESY_SORT_KEY]
+yearly_calculations_unstable_angina[,total_exp:=sum(tot_allowed_carrier,tot_allowed_outpatient,tot_allowed_inpatient,na.rm = T),by=DESY_SORT_KEY]
 yearly_calculations_unstable_angina[is.na(number_of_hospitalizations)==T,`:=`(number_of_hospitalizations=0,was_hospitalized=0)]
 yearly_calculations_unstable_angina[is.na(tot_allowed_outpatient)==T,`:=`(tot_allowed_outpatient=0)]
 yearly_calculations_unstable_angina[is.na(tot_allowed_inpatient)==T,`:=`(tot_allowed_inpatient=0)]
@@ -406,7 +409,7 @@ intensity_comparator=function(data,grouping_var){
       total_exp=sum(na.rm=T,total_exp)/n(),
       tot_allowed_inpatient=sum(na.rm=T,tot_allowed_inpatient)/n(),
       tot_allowed_outpatient=sum(na.rm=T,tot_allowed_outpatient)/n(),
-      tot_allowed_carrier=sum(na.rm=T,tot_allowed)/n(),
+      tot_allowed_carrier=sum(na.rm=T,tot_allowed_carrier)/n(),
       stable_angina=sum(na.rm=T,stable_angina)/n(),
       unstable_angina=sum(na.rm=T,unstable_angina)/n(),
       MI=sum(na.rm=T,MI)/n(),
@@ -489,7 +492,7 @@ intensity_comparator_pure_stable_angina=function(data,grouping_var){
       total_exp=sum(na.rm=T,total_exp)/n(),
       tot_allowed_inpatient=sum(na.rm=T,tot_allowed_inpatient)/n(),
       tot_allowed_outpatient=sum(na.rm=T,tot_allowed_outpatient)/n(),
-      tot_allowed_carrier=sum(na.rm=T,tot_allowed)/n(),
+      tot_allowed_carrier=sum(na.rm=T,tot_allowed_carrier)/n(),
       stable_angina=sum(na.rm=T,stable_angina)/n(),
       unstable_angina=sum(na.rm=T,unstable_angina)/n(),
       MI=sum(na.rm=T,MI)/n(),
@@ -557,7 +560,7 @@ intensity_comparator_pure_unstable_angina=function(data,grouping_var){
       total_exp=sum(na.rm=T,total_exp)/n(),
       tot_allowed_inpatient=sum(na.rm=T,tot_allowed_inpatient)/n(),
       tot_allowed_outpatient=sum(na.rm=T,tot_allowed_outpatient)/n(),
-      tot_allowed_carrier=sum(na.rm=T,tot_allowed)/n(),
+      tot_allowed_carrier=sum(na.rm=T,tot_allowed_carrier)/n(),
       stable_angina=sum(na.rm=T,stable_angina)/n(),
       unstable_angina=sum(na.rm=T,unstable_angina)/n(),
       MI=sum(na.rm=T,MI)/n(),

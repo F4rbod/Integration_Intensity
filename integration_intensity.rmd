@@ -1,0 +1,753 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Introduction
+
+In this project, we will try to see if there is a relation between the intensity of care of cardiologists and
+their vertical integration status.
+
+First, we will set our environment up. We used discovery cluster for this project.
+
+```{r setup, include=F}
+
+library(remoter)
+library(tidyverse)
+library(parallel)
+library(data.table)
+library(fst)
+library(comorbidity)
+library(zeallot)
+library(reshape)
+library(dtplyr)
+library(haven)
+```
+
+## An interface to use the cluster
+
+```{r remoter setup}
+knitr::knit_engines$set(remoter = function(options,port=8888) {
+  code <- paste(options$code, collapse = '\n')
+  out  <- capture.output(remoter::batch(script=code,port = port,timer = options$timer))
+  knitr::engine_output(options, code, out)
+})
+```
+
+```{remoter test, timer=F}
+print("test okay")
+```
+
+# Setting up remote environment
+
+We'll load the needed libraries:
+
+```{remoter load libraries, include=F, timer=F}
+
+numcores=62
+
+library(tidyverse)
+library(parallel)
+library(data.table)
+library(fst)
+library(comorbidity)
+library(zeallot)
+library(reshape)
+library(dtplyr)
+library(haven)
+
+setDTthreads(numcores)
+
+```
+
+# Calculations
+
+### Choose columns and combine years
+
+A function to choose the needed columns from our raw Medicare files and also combining all years in one file.
+
+``` {remoter read personal data (MBFS) , timer=F}
+
+#mbsf_2013=read.csv("/work/postresearch/Shared/Data_raw/Medicare/Claims/MBSF/den_saf_lds_5_2013.csv")
+#mbsf_2014=read.csv("/work/postresearch/Shared/Data_raw/Medicare/Claims/MBSF/den_saf_lds_5_2014.csv")
+#mbsf_2015=read.csv("/work/postresearch/Shared/Data_raw/Medicare/Claims/MBSF/den_saf_lds_5_2015.csv")
+#mbsf_2016=read.csv("/work/postresearch/Shared/Data_raw/Medicare/Claims/MBSF/mbsf_lds_5_2016.csv")
+#mbsf_2017=read.csv("/work/postresearch/Shared/Data_raw/Medicare/Claims/MBSF/mbsf_lds_5_2017.csv")
+#mbsf_2018=read.csv("/work/postresearch/Shared/Data_raw/Medicare/Claims/MBSF/mbsf_lds_5_2018.csv")
+#mbsf_2019=read.csv("/work/postresearch/Shared/Data_raw/Medicare/Claims/MBSF/mbsf_lds_5_2019.csv")
+#mbsf_2020=read.csv("/work/postresearch/Shared/Data_raw/Medicare/Claims/MBSF/mbsf_lds_5_2020.csv")
+
+mbsf_2013[10:15,]
+#mbsf_2014[1:10,]
+#mbsf_2015[1:10,]
+#mbsf_2016[1:10,]
+#mbsf_2017[1:10,]
+#mbsf_2018[1:10,]
+#mbsf_2019[1:10,]
+#mbsf_2020[1:10,]
+
+```
+
+
+```{remoter choose columns, timer=F}
+choose_columns = function(data_list,
+                          columns = c(
+                            "DESY_SORT_KEY",
+                            "CLAIM_NO",
+                            "LINE_NUM",
+                            "CLM_THRU_DT",
+                            "LINE_PLACE_OF_SRVC_CD",
+                            "HCPCS_CD",
+                            "LINE_ICD_DGNS_VRSN_CD",
+                            "LINE_ICD_DGNS_CD",
+                            "LINE_ALOWD_CHRG_AMT",
+                            "PRF_PHYSN_NPI",
+                            "PRVDR_SPCLTY",
+                            "PRVDR_STATE_CD"
+                          )) {
+  require(data.table)
+  data_list = lapply(data_list, function (data)
+    data [, ..columns])
+  result = rbindlist(data_list)
+  return(result)
+}
+
+carrier_data_all_years = choose_columns(
+  list(
+    carrier_data_2013,
+    carrier_data_2014,
+    carrier_data_2015,
+    carrier_data_2016,
+    carrier_data_2017,
+    carrier_data_2018,
+    carrier_data_2019,
+    carrier_data_2020
+  )
+)
+
+carrier_data_all_years[, date := as.IDate(as.character(CLM_THRU_DT), "%Y%m%d")][order(date)]
+write_fst(carrier_data_all_years, "carrier_data_all_years.fst")
+
+outpatient_data_all_years = choose_columns(
+  data_list = list(
+    outpatient_data_2013,
+    outpatient_data_2014,
+    outpatient_data_2015,
+    outpatient_data_2016,
+    outpatient_data_2017,
+    outpatient_data_2018,
+    outpatient_data_2019,
+    outpatient_data_2020
+  ),
+  columns = c("DESY_SORT_KEY", "CLM_THRU_DT", "CLM_TOT_CHRG_AMT")
+)
+outpatient_data_all_years[, date := as.IDate(as.character(CLM_THRU_DT), "%Y%m%d")][order(date)]
+write_fst(outpatient_data_all_years, "outpatient_data_all_years.fst")
+
+inpatient_data_all_years = choose_columns(
+  data_list = list(
+    inpatient_data_2013,
+    inpatient_data_2014,
+    inpatient_data_2015,
+    inpatient_data_2016,
+    inpatient_data_2017,
+    inpatient_data_2018,
+    inpatient_data_2019,
+    inpatient_data_2020
+  ),
+  columns = c(
+    "DESY_SORT_KEY",
+    "CLM_THRU_DT",
+    "CLM_TOT_CHRG_AMT",
+    "CLM_DRG_CD"
+  )
+)
+inpatient_data_all_years[, date := as.IDate(as.character(CLM_THRU_DT), "%Y%m%d")][order(date)]
+write_fst(inpatient_data_all_years, "inpatient_data_all_years.fst")
+
+
+```
+
+
+Read this function's results if already done
+
+```{remoter read all years data, timer=T}
+carrier_data_all_years=read_fst("carrier_data_all_years.fst", as.data.table = T)
+outpatient_data_all_years=read_fst("outpatient_data_all_years.fst", as.data.table = T)
+inpatient_data_all_years=read_fst("inpatient_data_all_years.fst", as.data.table = T)
+```
+
+I will copy some data to my local machine to check my functions before running them in the cluster and on the main data.
+
+```{remoter copy sample data, timer=F}
+carrier_sample=carrier_data_all_years[1:100000]
+inpatient_sample=outpatient_data_all_years[1:100000]
+outpatient_sample=inpatient_data_all_years[1:100000]
+s2c(carrier_sample)
+s2c(inpatient_sample)
+s2c(outpatient_sample)
+```
+
+##Yearly Calculators
+
+These are the main functions that calculate yearly expenditures for patients and their corresponding physicians.\
+
+### Diagnosis codes
+
+First, we will add diagnosis codes from ICD and Medicare:
+
+``` {r codes, include=F, timer=F}
+  #diagnosis codes
+  #from https://www.cms.gov/medicare-coverage-database/view/article.aspx?articleId=52850&ver=26 and https://www.aapc.com/codes/cpt-codes-range/93451-93533/10
+  angio_codes=c(93451,93452,93453,93454,93455,93456,93457,93458,93459,93460,93461,93462,93463,93464
+                ,93503,93505,93530,93531,93532,93533)
+  #from https://www.cms.gov/medicare-coverage-database/view/article.aspx?articleid=57326&ver=13&keyword=electrocardiogram&keywordType=starts&areaId=all&docType=NCA,CAL,NCD,MEDCAC,TA,MCD,6,3,5,1,F,P&contractOption=all&sortBy=relevance&bc=1
+  ecg_codes=c(93000,93005,93010,93040,93041,93042)
+  #from https://scct.org/page/CardiacCTCodes include CTangio
+  cardiac_ct_codes=c(75571,75572,75573,75574)
+  #from https://cardiacmri.com/tech-guide/cpt-codes-relevant-to-cardiac-mri/
+  cardiac_mri_codes=c(75557,75559,75561,75563,75565)
+  # from https://medicarepaymentandreimbursement.com/2011/07/cardiovascular-stress-testing-cpt-93015.html and https://www.aapc.com/codes/cpt-codes-range/93000-93050/
+  stress_test_codes=c(93015,93016,93017,93018)
+  #from https://www.aapc.com/codes/cpt-codes-range/93303-93356/20     includes stress echo
+  echocardiography_codes=c(93303,93304,93306,93307,93308,93312,93313,93314,93315,93316,93317,93318
+                           ,93320,93321,93325,93350,93351,93356,93352,93355,93356)
+  #from https://www.aapc.com/codes/cpt-codes-range/92920-92979/ and https://www.cms.gov/medicare-coverage-database/view/article.aspx?articleId=57479#:~:text=CPT%20codes%2092928%2C%2092933%2C%2092929,are%20assigned%20to%20APC%200104.    includes balloon and stent
+  angioplasty_codes=c(92920,92921,92924,92925,92928,92929,92933,92934,92937,92938,92941,92943,92944
+                      ,92973,92974,92975,92978,92979,93571,93572,"C9600","C9601","C9602","C9603"
+                      ,"C9604","C9605","C9606","C9607","C9608")
+  #from https://www.medaxiom.com/clientuploads/webcast_handouts/Coding_for_CABG-Open_Heart_Procedures.pdf and https://www.aapc.com/codes/cpt-codes-range/33016-33999/10    did not include 33517-33530 since these are used in conjunction with 33533-33548 and not alone, did not include 33542,33545,33548 since these are also in conjunction )aneurismectomy and vsd resection
+  CABG_codes=c(33510,33511,33512,33513,33514,33516,33533,33534,33535,33536)
+  #from http://www.icd9data.com/2015/Volume1/390-459/430-438/default.htm and https://www.icd10data.com/ICD10CM/Codes/I00-I99/I60-I69/I63-
+  stroke_icd_9_codes=c(43301,43311,43321,43331,43381,43391,43401,43411,43491)
+  office_visit_codes=c("99201","99202","99203","99204","99205","99211","99212","99213","99214"
+                       ,"99215")
+  IHD_icd_9_codes=c(410, 411, 412,413,414)
+  IHD_icd_10_codes=c("I20", "I21", "I22", "I23", "I24", "I25")
+  
+```
+\
+
+### Patient yearly expenditures and use of services
+
+I will first create a function that adds conditions of interest to the data.
+```{r add conditions , timer = F }
+
+yearly_calculator_patient_conditions = function(data) {
+  
+  #requirements
+  require(data.table)
+  require(dtplyr)
+  require(tidyverse)
+  require(lubridate)
+  
+  data %>%
+    mutate(
+      is_catheterization = HCPCS_CD %in% angio_codes,
+      is_ecg = HCPCS_CD %in% ecg_codes,
+      is_cardiac_ct = HCPCS_CD %in% cardiac_ct_codes,
+      is_cardiac_mri = HCPCS_CD %in% cardiac_mri_codes,
+      is_stress_test = HCPCS_CD %in% stress_test_codes,
+      is_echocardiography = HCPCS_CD %in% echocardiography_codes,
+      is_angioplasty = HCPCS_CD %in% angioplasty_codes,
+      is_CABG = HCPCS_CD %in% CABG_codes,
+      is_stable_angina = ifelse(
+        LINE_ICD_DGNS_VRSN_CD == 0,
+        LINE_ICD_DGNS_CD %in% c ("I208", "I209"),
+        ifelse(LINE_ICD_DGNS_VRSN_CD == 9, LINE_ICD_DGNS_CD == "4139", NA)
+      ),
+      is_unstable_angina = ifelse(
+        LINE_ICD_DGNS_VRSN_CD == 0,
+        LINE_ICD_DGNS_CD == "I200",
+        ifelse(LINE_ICD_DGNS_VRSN_CD == 9, LINE_ICD_DGNS_CD == "4111", NA)
+      ),
+      is_MI = if_else(
+        LINE_ICD_DGNS_VRSN_CD == 0,
+        substr(LINE_ICD_DGNS_CD, 0, 3) == "I21",
+        if_else(
+          LINE_ICD_DGNS_VRSN_CD == 9,
+          substr(LINE_ICD_DGNS_CD, 0, 3) == "410" ,
+          NA
+        )
+      ),
+      is_cardiac_arrest = if_else(
+        LINE_ICD_DGNS_VRSN_CD == 0,
+        substr(LINE_ICD_DGNS_CD, 0, 3) == "I46",
+        if_else(LINE_ICD_DGNS_VRSN_CD == 9, LINE_ICD_DGNS_CD == "4275", NA)
+      ),
+      is_stroke = if_else(
+        LINE_ICD_DGNS_VRSN_CD == 0,
+        substr(LINE_ICD_DGNS_CD, 0, 3) == "I63",
+        if_else(
+          LINE_ICD_DGNS_VRSN_CD == 9,
+          LINE_ICD_DGNS_CD %in% stroke_icd_9_codes,
+          NA
+        )
+      ),
+      is_office_visit = LINE_PLACE_OF_SRVC_CD %in% office_visit_codes,
+      is_cardiology_office_vist =
+        (LINE_PLACE_OF_SRVC_CD %in% office_visit_codes) &
+        (PRF_PHYSN_NPI %in% c("06", "C3")),
+      is_IHD = if_else(
+        LINE_ICD_DGNS_VRSN_CD == 0,
+        substr(LINE_ICD_DGNS_CD, 0, 3) %in% IHD_icd_10_codes,
+        if_else(
+          LINE_ICD_DGNS_VRSN_CD == 9,
+          substr(LINE_ICD_DGNS_CD, 0, 3) %in% IHD_icd_9_codes,
+          NA
+        )
+      )
+    ) %>%
+    as.data.table()
+}
+
+a=yearly_calculator_patient_conditions(carrier_sample)
+a
+```
+
+I will now summarise the data for each patient.
+```{r summarise expenditures and uses}
+
+summarise_expenditures = function(data, time_frame = 365, diagnosis){
+  
+  data%>%
+    group_by(DESY_SORT_KEY) %>%
+    filter(sum(eval(parse(
+      text = paste("is_", diagnosis, sep = "")
+    )), na.rm = T) == T) %>%
+    mutate(first_diagnosis = min(date[eval(parse(text = paste("is_", diagnosis, sep = ""))) ==
+                                        T]), na.rm = T) %>%
+    mutate( had_IHD = (
+      date - first_diagnosis < 0 &
+        first_diagnosis - date < time_frame &
+        is_IHD
+    ))%>%
+    filter(date - first_diagnosis >= 0 &
+             date - first_diagnosis < time_frame &
+             had_IHD == F,
+           .preserve = T) %>%
+    summarise(
+      first_diagnosis = unique(first_diagnosis),
+      tot_allowed_carrier = sum(na.rm = T, LINE_ALOWD_CHRG_AMT),
+      office_visit_count = sum(na.rm = T, is_office_visit),
+      cardiology_visit_count = sum(na.rm = T, is_cardiology_office_vist),
+      distinct_clinicians = length(unique(PRF_PHYSN_NPI)),
+      catheterization_count = sum(na.rm = T, is_catheterization),
+      catheterization_cost = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_catheterization),
+      ecg_count = sum(na.rm = T, is_ecg),
+      ecg_cost = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_ecg),
+      cardiac_ct_count = sum(na.rm = T, is_cardiac_ct),
+      cardiac_ct_cost = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_cardiac_ct),
+      cardiac_mri_count = sum(na.rm = T, is_cardiac_mri),
+      cardiac_mri_cost = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_cardiac_mri),
+      stress_test_count = sum(na.rm = T, is_stress_test),
+      stress_test_cost = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_stress_test),
+      echocardiography_count = sum(na.rm = T, is_echocardiography),
+      echocardiography_cost = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_echocardiography),
+      angioplasty_count = sum(na.rm = T, is_angioplasty),
+      angioplasty_cost = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_angioplasty),
+      CABG_count = sum(na.rm = T, is_CABG),
+      CABG_cost = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_CABG),
+      stable_angina = sum(is_stable_angina, na.rm = T) > 0,
+      unstable_angina = sum(is_unstable_angina, na.rm = T) > 0,
+      MI = sum(is_MI, na.rm = T) > 0,
+      cardiac_arrest = sum(is_cardiac_arrest, na.rm = T) > 0,
+      stroke = sum(is_stroke, na.rm = T) > 0,
+      icd_9_pure = ifelse(prod(LINE_ICD_DGNS_VRSN_CD, na.rm = T) == 0, F, T),
+      icd_10_pure = ifelse(sum(LINE_ICD_DGNS_VRSN_CD, na.rm = T) == 0, T, F)
+    ) %>%
+    group_by(DESY_SORT_KEY) %>%
+    mutate(
+      tot_cheap_prcdr = sum(
+        ecg_count,
+        stress_test_count,
+        echocardiography_count,
+        cardiology_visit_count
+        ,
+        na.rm = T
+      ),
+      tot_expensive_prcdr = sum(
+        catheterization_count,
+        cardiac_ct_count,
+        cardiac_mri_count,
+        angioplasty_count,
+        CABG_count,
+        na.rm = T
+      ),
+    )%>%
+    as.data.table()
+}
+
+summary = summarise_expenditures(a , diagnosis = "stable_angina")
+
+```
+
+### Adding comorbidities
+
+Here, I will add patient comorbidity scores.
+```{r comorbidities}
+
+comorbidity_finder=function(data, summary_data, time_frame = 365){
+
+  require(comorbidity)
+  
+  #adding comorbidities
+  comorbidity_and_phys_data =
+    inner_join(data, summary_data[, c("DESY_SORT_KEY",
+                                "first_diagnosis",
+                                "icd_9_pure",
+                                "icd_10_pure")], by = "DESY_SORT_KEY") %>%
+    filter(date - first_diagnosis >= 0 &
+             date - first_diagnosis < time_frame) %>%
+    as.data.table()
+  
+  
+  comorbidity_icd_9 = comorbidity_and_phys_data %>%
+    subset(icd_9_pure == T)
+  
+  if (nrow(comorbidity_icd_9) != 0) {
+    comorbidity_icd_9 = comorbidity(
+      as.data.table(comorbidity_icd_9),
+      id = "DESY_SORT_KEY",
+      code = "LINE_ICD_DGNS_CD",
+      score = "charlson",
+      icd = "icd9",
+      assign0 = T
+    )
+  }
+  else {
+    comorbidity_icd_9 = data.table(
+      DESY_SORT_KEY = NA,
+      score = NA,
+      index = NA,
+      wscore = NA,
+      windex = NA
+    )
+  }
+  
+  comorbidity_icd_10 = comorbidity_and_phys_data %>%
+    subset(icd_10_pure == T)
+  
+  if (nrow(comorbidity_icd_10) != 0) {
+    comorbidity_icd_10 = comorbidity(
+      as.data.table(comorbidity_icd_10),
+      id = "DESY_SORT_KEY",
+      code = "LINE_ICD_DGNS_CD",
+      score = "charlson",
+      icd = "icd10",
+      assign0 = T
+    )
+  }
+  else {
+    comorbidity_icd_10 = data.table(
+      DESY_SORT_KEY = NA,
+      score = NA,
+      index = NA,
+      wscore = NA,
+      windex = NA
+    )
+  }
+  
+ rbind(comorbidity_icd_9[, c("DESY_SORT_KEY", "score", "index", "wscore", "windex")]
+                          , comorbidity_icd_10[, c("DESY_SORT_KEY", "score", "index", "wscore", "windex")])
+}
+
+comorbidity=comorbidity_finder(data = carrier_sample, summary_data = summary)
+comorbidity
+```
+
+### Most common physicians for each patient
+
+Now, we will find most common physicians and cardiologists for each patient.
+```{r most common NPI}
+
+#adding most common physicians
+add_patient_NPI=function(data, summary_data, time_frame = 365){
+    
+  comorbidity_and_phys_data =
+    inner_join(data, summary_data[, c("DESY_SORT_KEY",
+                                "first_diagnosis",
+                                "icd_9_pure",
+                                "icd_10_pure")], by = "DESY_SORT_KEY") %>%
+    filter(date - first_diagnosis >= 0 &
+             date - first_diagnosis < time_frame) %>%
+    as.data.table()
+  
+  patient_NPI_count_finder = function(data) {
+    result = data %>%
+      group_by(DESY_SORT_KEY, PRF_PHYSN_NPI) %>%
+      summarise(n = n()) %>%
+      arrange(.by_group = T, desc(n))
+  }
+  
+  patient_NPI_counts = patient_NPI_count_finder(comorbidity_and_phys_data)
+  
+  patient_NPI_counts = left_join(patient_NPI_counts, distinct(data[, .(PRF_PHYSN_NPI, PRVDR_SPCLTY)]), by =
+                                   "PRF_PHYSN_NPI")
+  
+  find_most_common = function(data) {
+    data %>%
+      group_by(DESY_SORT_KEY) %>%
+      arrange(.by_group = T, desc(n)) %>%
+      slice(1) %>%
+      as.data.table()
+  }
+  find_most_common_by_specialty = function(data, specialty_code) {
+    data %>%
+      filter(PRVDR_SPCLTY %in% specialty_code) %>%
+      group_by(DESY_SORT_KEY) %>%
+      arrange(.by_group = T, desc(n)) %>%
+      slice(1) %>%
+      as.data.table()
+  }
+  
+  most_common_physician = find_most_common(patient_NPI_counts)
+  #primary care = 01:general practice/ family practice:08/ internal medicine:11/ geriatrics:38
+  most_common_primary_care_physician = find_most_common_by_specialty(patient_NPI_counts,
+                                                                     specialty_code = c("01", "08", "11", "38"))
+  most_common_cardiologists = find_most_common_by_specialty(patient_NPI_counts, specialty_code =
+                                                              "06")
+  most_common_interventional_cardiologists = find_most_common_by_specialty(patient_NPI_counts, specialty_code =
+                                                                             "C3")
+  
+  most_common_physician = data.frame(most_common_physician) %>%
+    rename_with( ~ paste0("most_common_physician_", .x))
+  most_common_primary_care_physician = data.frame(most_common_primary_care_physician) %>%
+    rename_with( ~ paste0("most_common_primary_care_physician_", .x))
+  most_common_cardiologists = data.frame(most_common_cardiologists) %>%
+    rename_with( ~ paste0("most_common_cardiologist_", .x))
+  most_common_interventional_cardiologists = data.frame(most_common_interventional_cardiologists) %>%
+    rename_with( ~ paste0("most_common_interventional_cardiologist_", .x))
+  
+  summary_data = left_join(
+    summary_data,
+    most_common_physician,
+    by = c("DESY_SORT_KEY" = "most_common_physician_DESY_SORT_KEY")
+  )
+  summary_data = left_join(
+    summary_data,
+    most_common_primary_care_physician,
+    by = c("DESY_SORT_KEY" = "most_common_primary_care_physician_DESY_SORT_KEY")
+  )
+  summary_data = left_join(
+    summary_data,
+    most_common_cardiologists,
+    by = c("DESY_SORT_KEY" = "most_common_cardiologist_DESY_SORT_KEY")
+  )
+  summary_data = left_join(
+    summary_data,
+    most_common_interventional_cardiologists,
+    by = c("DESY_SORT_KEY" = "most_common_interventional_cardiologist_DESY_SORT_KEY")
+  )%>%
+    as.data.table()
+
+  summary_data[, year_first_diagnosis := lubridate::year(first_diagnosis)]%>%
+    as.data.table()
+
+}
+
+summary_with_npi=add_patient_NPI(data = carrier_sample, summary_data = summary)
+summary_with_npi
+```
+
+## Physician integration status
+
+Here, I will find which physicians are integrated.
+
+```{r}
+
+#calculate and add physician integration data
+#this only uses visits to see if a physician is integrated or not (codde list)
+
+physician_integration_finder = function(data,
+                                        integrated_place_of_service_codes = c("19", "22"),
+                                        all_place_of_service_codes = c("11", "19", "22"),
+                                        integration_threshold = 0.5,
+                                        code_list = c(
+                                          "99201",
+                                          "99202",
+                                          "99203",
+                                          "99204",
+                                          "99205",
+                                          "99211",
+                                          "99212",
+                                          "99213",
+                                          "99214",
+                                          "99215"
+                                        )) {
+  data = subset(data, HCPCS_CD %in% code_list)
+  result = data %>%
+    mutate(
+      is_facility = LINE_PLACE_OF_SRVC_CD %in% integrated_place_of_service_codes,
+      is_all = LINE_PLACE_OF_SRVC_CD %in% all_place_of_service_codes,
+    ) %>%
+    group_by(PRF_PHYSN_NPI, year) %>%
+    summarise(
+      in_facility_count = sum(is_facility, na.rm = T),
+      in_all_count = sum(is_all, na.rm = T),
+      tot = n(),
+    ) %>%
+    mutate(
+      in_facility_prp = in_facility_count / in_all_count,
+      in_facility_prp_from_tot = in_facility_count / tot,
+      is_integrated = in_facility_prp >= integration_threshold,
+      is_integrated_from_tot = in_facility_prp_from_tot >= integration_threshold,
+    ) %>%
+    as.data.table()
+}
+
+physician_integration_stats = physician_integration_finder(carrier_sample, integration_threshold =
+                                                             0.5)
+physician_integration_stats
+```
+
+This function will add the integration status of most common physicians to each patient's summary data.
+
+```{r add integration}
+
+#rename columns
+rename_last = function(data, how_many, new_names) {
+  total_cols = ncol(data)
+  setnames(data, (total_cols - how_many + 1):(total_cols), new_names)
+}
+add_integration_status=function(data, physician_integration_stats){
+  
+  data = left_join(
+    data,
+    physician_integration_stats,
+    by = c(
+      "most_common_physician_PRF_PHYSN_NPI" = "PRF_PHYSN_NPI",
+      "year_first_diagnosis" = "year"
+    )
+  ) %>% as.data.table()
+  
+  rename_last(
+    data,
+    7,
+    c(
+      "most_common_physician_in_facility_count"
+      ,
+      "most_common_physician_in_all_count"
+      ,
+      "most_common_physician_tot"
+      ,
+      "most_common_physician_in_facility_prp"
+      ,
+      "most_common_physician_in_facility_prp_from_tot"
+      ,
+      "most_common_physician_is_integrated"
+      ,
+      "most_common_physician_is_integrated_from_tot"
+    )
+  )
+  
+  data = left_join(
+    data,
+    physician_integration_stats,
+    by = c(
+      "most_common_primary_care_physician_PRF_PHYSN_NPI" = "PRF_PHYSN_NPI",
+      "year_first_diagnosis" = "year"
+    )
+  ) %>% as.data.table()
+  
+  rename_last(
+    data,
+    7,
+    c(
+      "most_common_primary_care_physician_in_facility_count"
+      ,
+      "most_common_primary_care_physician_in_all_count"
+      ,
+      "most_common_primary_care_physician_tot"
+      ,
+      "most_common_primary_care_physician_in_facility_prp"
+      ,
+      "most_common_primary_care_physician_in_facility_prp_from_tot"
+      ,
+      "most_common_primary_care_physician_is_integrated"
+      ,
+      "most_common_primary_care_physician_is_integrated_from_tot"
+    )
+  )
+  
+  data = left_join(
+    data,
+    physician_integration_stats,
+    by = c(
+      "most_common_cardiologist_PRF_PHYSN_NPI" = "PRF_PHYSN_NPI",
+      "year_first_diagnosis" = "year"
+    )
+  ) %>% as.data.table()
+  
+  rename_last(
+    data,
+    7,
+    c(
+      "most_common_cardiologist_in_facility_count"
+      ,
+      "most_common_cardiologist_in_all_count"
+      ,
+      "most_common_cardiologist_tot"
+      ,
+      "most_common_cardiologist_in_facility_prp"
+      ,
+      "most_common_cardiologist_in_facility_prp_from_tot"
+      ,
+      "most_common_cardiologist_is_integrated"
+      ,
+      "most_common_cardiologist_is_integrated_from_tot"
+    )
+  )
+  
+  
+  data = left_join(
+    data,
+    physician_integration_stats,
+    by = c(
+      "most_common_interventional_cardiologist_PRF_PHYSN_NPI" = "PRF_PHYSN_NPI",
+      "year_first_diagnosis" = "year"
+    )
+  ) %>% as.data.table()
+  
+  rename_last(
+    data,
+    7,
+    c(
+      "most_common_interventional_cardiologist_in_facility_count"
+      ,
+      "most_common_interventional_cardiologist_in_all_count"
+      ,
+      "most_common_interventional_cardiologist_tot"
+      ,
+      "most_common_interventional_cardiologist_in_facility_prp"
+      ,
+      "most_common_interventional_cardiologist_in_facility_prp_from_tot"
+      ,
+      "most_common_interventional_cardiologist_is_integrated"
+      ,
+      "most_common_interventional_cardiologist_is_integrated_from_tot"
+    )
+  )
+  
+  return(as.data.table(data))
+}
+
+add_integration_status(data = summary_with_npi, physician_integration_stats = physician_integration_stats)
+```
+
+```
+
+
+
+
+
+  result = left_join(result, comorbidity_all, by = "DESY_SORT_KEY",) %>% as.data.table()
+
+
+
+yearly_calcualtions_carrier_stable_angina=yearly_calculator(carrier_data_all_years,diagnosis="stable_angina")
+
+yearly_calcualtions_carrier_unstable_angina=yearly_calculator(carrier_data_all_years,diagnosis="unstable_angina")
+
+write_fst(yearly_calcualtions_carrier_stable_angina,"yearly_calcualtions_carrier_stable_angina.fst") 
+write_fst(yearly_calcualtions_carrier_unstable_angina,"yearly_calcualtions_carrier_unstable_angina.fst")

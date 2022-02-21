@@ -17,6 +17,8 @@ cd /work/postresearch/Shared/Projects/Farbod
 module load R
 R
 
+remoter::server(port=8888, verbose= T, showmsg= T)
+
 tmux session-list
 tmux attach-session -t 0
 
