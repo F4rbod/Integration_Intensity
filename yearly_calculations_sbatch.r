@@ -29,6 +29,8 @@ registerDoMC(cores=numcores_foreach)
 
 
 
+
+
 #diagnosis codes
 #from https://www.cms.gov/medicare-coverage-database/view/article.aspx?articleId=52850&ver=26 and https://www.aapc.com/codes/cpt-codes-range/93451-93533/10
 angio_codes=c(93451,93452,93453,93454,93455,93456,93457,93458,93459,93460,93461,93462,93463,93464
@@ -92,6 +94,7 @@ diabetes_icd_10_codes=c("E08","E09","E10","E11","E13")
 
 
 
+
 carrier_data_all_years = read_fst(
     "carrier_data_all_years.fst", as.data.table = T)
 
@@ -104,15 +107,15 @@ mbsf_data = read_fst(
   "/work/postresearch/Shared/Projects/Data_fst/mbsf_data", as.data.table = T)
 revenue_center_outpatient_all_years = read_fst(
   "/work/postresearch/Shared/Projects/Data_fst/revenue_center_outpatient_all_years.fst", as.data.table = T)
-#outpatient_and_revenue_center_data = read_fst(
- # "/work/postresearch/Shared/Projects/Data_fst/outpatient_and_revenue_center_data.fst", as.data.table = T)
+outpatient_and_revenue_center_data = read_fst(
+  "/work/postresearch/Shared/Projects/Data_fst/outpatient_and_revenue_center_data.fst", as.data.table = T)
 
 carrier_sample = tail(carrier_data_all_years,100000)
 outpatient_sample = tail(outpatient_data_all_years,100000)
 inpatient_sample = tail(inpatient_data_all_years,100000)
 mbsf_sample = tail(mbsf_data,100000)
 revenue_center_outpatient_sample=tail(revenue_center_outpatient_all_years,100000)
-#outpatient_and_revenue_center_data_sample=outpatient_and_revenue_center_data[1:100000]
+outpatient_and_revenue_center_data_sample=outpatient_and_revenue_center_data[1:100000]
 
 #head(carrier_sample)
 #head(outpatient_sample)
@@ -136,6 +139,13 @@ yearly_calculator_patient_conditions = function(data) {
   
   data %>%
     mutate(
+      is_cardiology_related = if_else(
+        LINE_ICD_DGNS_VRSN_CD == 0,
+        substr(LINE_ICD_DGNS_CD, 0, 1) == "I",
+        if_else(
+          LINE_ICD_DGNS_VRSN_CD == 9,
+          as.numeric(substr(LINE_ICD_DGNS_CD, 0, 3))>=399 & 
+          as.numeric(substr(LINE_ICD_DGNS_CD, 0, 3))<=459 ,NA)),      
       is_catheterization = HCPCS_CD %in% angio_codes,
       is_ecg = HCPCS_CD %in% ecg_codes,
       is_cardiac_ct = HCPCS_CD %in% cardiac_ct_codes,
@@ -210,13 +220,13 @@ yearly_calculator_patient_conditions = function(data) {
         substr(LINE_ICD_DGNS_CD, 0, 3) %in% diabetes_icd_10_codes,
         if_else(
           LINE_ICD_DGNS_VRSN_CD == 9,
-          substr(LINE_ICD_DGNS_CD, 0, 4) %in% diabetes_icd_9_codes,NA))
+          substr(LINE_ICD_DGNS_CD, 0, 3) %in% diabetes_icd_9_codes,NA))
     ) %>%
     as.data.table()
 }
 
-#yearly_patient_conditions=yearly_calculator_patient_conditions(carrier_sample)
-#head(yearly_patient_conditions)
+#yearly_patient_conditions_carrier=yearly_calculator_patient_conditions(carrier_sample)
+#head(yearly_patient_conditions_carrier)
 
 
 
@@ -224,7 +234,8 @@ yearly_calculator_patient_conditions = function(data) {
 
 
 
-summarise_expenditures = function(data, time_frame = 365, diagnosis){
+
+summarise_expenditures_carrier = function(data, time_frame = 365, diagnosis){
   
   data%>%
     group_by(DESY_SORT_KEY) %>%
@@ -240,7 +251,8 @@ summarise_expenditures = function(data, time_frame = 365, diagnosis){
     ))%>%
     filter(date - first_diagnosis >= 0 &
              date - first_diagnosis < time_frame &
-             had_IHD == F, #we are excluding patients who had IHD in the year before diagnosis
+             had_IHD == F &
+             is_cardiology_related,
            .preserve = T) %>%
     summarise(
       first_diagnosis = unique(first_diagnosis),
@@ -301,8 +313,9 @@ summarise_expenditures = function(data, time_frame = 365, diagnosis){
     as.data.table()
 }
 
-#summary = summarise_expenditures(yearly_patient_conditions , diagnosis = "unstable_angina")
+#summary = summarise_expenditures_carrier(yearly_patient_conditions_carrier , diagnosis = "unstable_angina")
 #head(summary)
+
 
 
 
@@ -329,32 +342,33 @@ outpatient_patient_characteristics=function(outpatient_revenue_center_data){
       is_echocardiography = HCPCS_CD %in% echocardiography_codes,
       is_angioplasty = HCPCS_CD %in% angioplasty_codes,
       is_CABG = HCPCS_CD %in% CABG_codes,
-      #is_stable_angina = ifelse(
-      #  PRNCPAL_DGNS_VRSN_CD == 0,
-      #  PRNCPAL_DGNS_CD %in% c ("I208", "I209"),
-      #  ifelse(PRNCPAL_DGNS_VRSN_CD == 9, PRNCPAL_DGNS_CD == "4139", NA)),
-      #is_unstable_angina = ifelse(
-      #  PRNCPAL_DGNS_VRSN_CD == 0,
-      #  PRNCPAL_DGNS_CD == "I200",
-      #  ifelse(PRNCPAL_DGNS_VRSN_CD == 9, PRNCPAL_DGNS_CD == "4111", NA)),
+      is_cardiology_related = if_else(
+        PRNCPAL_DGNS_VRSN_CD == 0,
+        substr(PRNCPAL_DGNS_CD, 0, 1) == "I",
+        if_else(
+          PRNCPAL_DGNS_VRSN_CD == 9,
+          as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))>=399 & 
+          as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))<=459 ,NA))
     ) %>%
     as.data.table()
 }
                                       
                                       
 
-outpatient_cost_adder=function(outpatient_revenue_center_data, summary_data, time_frame=365){
+outpatient_cost_adder=function(outpatient_and_revenue_center_data, summary_data, time_frame=365){
   
   require(tidyverse)
   require(dtplyr)
   require(lubridate)
-  data=outpatient_patient_characteristics(outpatient_revenue_center_data)%>%as.data.table()
+  data=outpatient_patient_characteristics(outpatient_and_revenue_center_data)%>%as.data.table()
   data=right_join(data,
                   summary_data[,.(DESY_SORT_KEY,first_diagnosis)],by="DESY_SORT_KEY")%>%as.data.table()
   
   result=data%>%
   filter(date - first_diagnosis >= 0 &
-         date - first_diagnosis < time_frame) %>%
+         date - first_diagnosis < time_frame &
+         is_cardiology_related
+        ) %>%
   group_by(DESY_SORT_KEY) %>%
   summarise(
     office_visit_cost_outpatient = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_office_vist),
@@ -395,8 +409,17 @@ outpatient_cost_adder=function(outpatient_revenue_center_data, summary_data, tim
   return(result)
 }
 
-#summary_with_outpatient=outpatient_cost_adder(revenue_center_outpatient_sample,summary)
+#summary_with_outpatient=outpatient_cost_adder(outpatient_and_revenue_center_data_sample,summary)
 #head(summary_with_outpatient)
+
+
+
+
+
+
+
+
+
 
 twelve_months_after=function(data,colname){
 
@@ -488,6 +511,16 @@ add_patient_characteristics = function(mbsf_data,summary_data){
 
 #summary_with_patient_characteristics=add_patient_characteristics(mbsf_data,summary_with_outpatient)
 
+
+
+
+
+
+
+
+
+
+
 add_comorbidity=function(data, summary_data, time_frame = 365){
 
   require(comorbidity)
@@ -562,6 +595,16 @@ add_comorbidity=function(data, summary_data, time_frame = 365){
 #summary_with_patient_characteristics_comorbidity=add_comorbidity(data = carrier_sample, summary_data = summary_with_patient_characteristics)
 #summary_with_patient_characteristics_comorbidity
 
+
+
+
+
+
+
+
+
+
+
 #adding most common physicians
 add_patient_NPI=function(data, summary_data, time_frame = 365){
 
@@ -576,15 +619,16 @@ add_patient_NPI=function(data, summary_data, time_frame = 365){
   
   patient_NPI_count_finder = function(data) {
     result = data %>%
+      mutate(is_office_visit = HCPCS_CD %in% office_visit_codes)%>%
       group_by(DESY_SORT_KEY, PRF_PHYSN_NPI) %>%
-      summarise(n = n()) %>%
+      summarise(n = sum(is_office_visit,na.rm=T)) %>%
       arrange(.by_group = T, desc(n))
   }
   
   patient_NPI_counts = patient_NPI_count_finder(comorbidity_and_phys_data)
   
-  patient_NPI_counts = left_join(patient_NPI_counts, distinct(data[, .(PRF_PHYSN_NPI, PRVDR_SPCLTY)]), by =
-                                   "PRF_PHYSN_NPI")
+  patient_NPI_counts = left_join(patient_NPI_counts,
+                                 distinct(data[, .(PRF_PHYSN_NPI, PRVDR_SPCLTY)]), by ="PRF_PHYSN_NPI")
   
   find_most_common = function(data) {
     data %>%
@@ -593,6 +637,7 @@ add_patient_NPI=function(data, summary_data, time_frame = 365){
       slice(1) %>%
       as.data.table()
   }
+  
   find_most_common_by_specialty = function(data, specialty_code) {
     data %>%
       filter(PRVDR_SPCLTY %in% specialty_code) %>%
@@ -651,6 +696,14 @@ add_patient_NPI=function(data, summary_data, time_frame = 365){
 #head(summary_with_npi)
 
 
+
+
+
+
+
+
+
+
 yearly_calculator = function(data,mbsf_data,revenue_center_outpatient_data,diagnosis){
 
   require(tidyverse)
@@ -665,7 +718,7 @@ yearly_calculator = function(data,mbsf_data,revenue_center_outpatient_data,diagn
 
   result = data %>%
     yearly_calculator_patient_conditions()%>%
-    summarise_expenditures(diagnosis = diagnosis) %>%
+    summarise_expenditures_carrier(diagnosis = diagnosis) %>%
     outpatient_cost_adder(revenue_center_outpatient_data, summary_data = .)%>%
     add_patient_characteristics(mbsf_data = mbsf_data, summary_data = .)%>%
     add_comorbidity(data = data, summary_data = .) %>%
@@ -680,26 +733,28 @@ yearly_calculator = function(data,mbsf_data,revenue_center_outpatient_data,diagn
 }
 
 
-
 yearly_calcualtions_carrier_stable_angina=
 yearly_calculator(data=carrier_data_all_years,
                   mbsf_data=mbsf_data,
-                  revenue_center_outpatient_data=revenue_center_outpatient_all_years,
+                  revenue_center_outpatient_data=outpatient_and_revenue_center_data,
                   diagnosis="stable_angina")
 
-
 write_fst(yearly_calcualtions_carrier_stable_angina,
-          "results_mar/yearly_calcualtions_carrier_stable_angina.fst")
+          "results_apr/yearly_calcualtions_carrier_stable_angina.fst")
 
 
 yearly_calcualtions_carrier_unstable_angina=
 yearly_calculator(data=carrier_data_all_years,
                   mbsf_data=mbsf_data,
-                  revenue_center_outpatient_data=revenue_center_outpatient_all_years,
+                  revenue_center_outpatient_data=outpatient_and_revenue_center_data,
                   diagnosis="unstable_angina")
 
 write_fst(yearly_calcualtions_carrier_unstable_angina,
-          "results_mar/yearly_calcualtions_carrier_unstable_angina.fst")
+          "results_apr/yearly_calcualtions_carrier_unstable_angina.fst")
+
+
+
+
 
 
 
@@ -715,7 +770,14 @@ intpatient_data_all_years_unstable_angina=inner_join(inpatient_data_all_years, y
 #outpatient
 yearly_tot_outpatient=function(data,time_frame=365){
   data%>%
-    filter(date>=first_diagnosis & date-first_diagnosis<time_frame)%>%
+  mutate(is_cardiology_related = if_else(
+    PRNCPAL_DGNS_VRSN_CD == 0,
+    substr(PRNCPAL_DGNS_CD, 0, 1) == "I",
+    if_else(
+      PRNCPAL_DGNS_VRSN_CD == 9,
+      as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))>=399 & 
+      as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))<=459 ,NA)))%>%
+    filter(date>=first_diagnosis & date-first_diagnosis<time_frame & is_cardiology_related)%>%
     group_by(DESY_SORT_KEY)%>%
     summarise(tot_allowed_outpatient=sum(CLM_TOT_CHRG_AMT))%>%
     as.data.table()
@@ -725,7 +787,14 @@ yearly_tot_outpatient=function(data,time_frame=365){
 #inpatient
 yearly_calculator_inpatient=function (data, time_frame=365){
   data %>%
-    filter(date>=first_diagnosis & date-first_diagnosis<time_frame)%>%
+  mutate(is_cardiology_related = if_else(
+    PRNCPAL_DGNS_VRSN_CD == 0,
+    substr(PRNCPAL_DGNS_CD, 0, 1) == "I",
+    if_else(
+      PRNCPAL_DGNS_VRSN_CD == 9,
+      as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))>=399 & 
+      as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))<=459 ,NA)))%>%
+    filter(date>=first_diagnosis & date-first_diagnosis<time_frame & is_cardiology_related)%>%
     group_by(DESY_SORT_KEY)%>%
     summarise(tot_allowed_inpatient=sum(CLM_TOT_CHRG_AMT),
               number_of_hospitalizations=length(unique(date)[is.na(CLM_DRG_CD)==F]),
@@ -741,6 +810,7 @@ inpatient_tot_yearly_stable_angina=yearly_calculator_inpatient(intpatient_data_a
 
 outpatient_tot_yearly_unstable_angina=yearly_tot_outpatient(outpatient_data_all_years_unstable_angina)
 inpatient_tot_yearly_unstable_angina=yearly_calculator_inpatient(intpatient_data_all_years_unstable_angina)
+
 
 
 
@@ -1102,15 +1172,15 @@ head(yearly_calculations_unstable_angina)
 
 
 write_fst(yearly_calculations_stable_angina,
-          "results_mar/yearly_calculations_stable_angina_with_integration.fst") 
+          "results_apr/yearly_calculations_stable_angina_with_integration.fst") 
 write_fst(yearly_calculations_unstable_angina,
-          "results_mar/yearly_calculations_unstable_angina_with_integration.fst")
+          "results_apr/yearly_calculations_unstable_angina_with_integration.fst")
 write_fst(physician_integration_stats,
-          "results_mar/physician_integration_stats.fst")
+          "results_apr/physician_integration_stats.fst")
 
 #I am also saving the csv to be able to share the results with colleagues later.
 write.csv(yearly_calculations_stable_angina,
-          "results_mar/yearly_calculations_stable_angina_with_integration.csv") 
+          "results_apr/yearly_calculations_stable_angina_with_integration.csv") 
 write.csv(yearly_calculations_unstable_angina,
-          "results_mar/yearly_calculations_unstable_angina_with_integration.csv")
+          "results_apr/yearly_calculations_unstable_angina_with_integration.csv")
 
