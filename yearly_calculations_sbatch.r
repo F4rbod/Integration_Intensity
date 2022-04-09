@@ -225,7 +225,7 @@ yearly_calculator_patient_conditions = function(data) {
     as.data.table()
 }
 
-#yearly_patient_conditions_carrier=yearly_calculator_patient_conditions(carrier_sample)
+#yearly_patient_conditions_carrier=yearly_calculator_patient_conditions(carrier_data_all_years)
 #head(yearly_patient_conditions_carrier)
 
 
@@ -251,8 +251,7 @@ summarise_expenditures_carrier = function(data, time_frame = 365, diagnosis){
     ))%>%
     filter(date - first_diagnosis >= 0 &
              date - first_diagnosis < time_frame &
-             had_IHD == F &
-             is_cardiology_related,
+             had_IHD == F,
            .preserve = T) %>%
     summarise(
       first_diagnosis = unique(first_diagnosis),
@@ -295,26 +294,84 @@ summarise_expenditures_carrier = function(data, time_frame = 365, diagnosis){
       depression = sum(is_depression, na.rm = T) > 0,
       diabetes = sum(is_diabetes, na.rm = T) > 0,
       icd_9_pure = ifelse(prod(LINE_ICD_DGNS_VRSN_CD, na.rm = T) == 0, F, T),
-      icd_10_pure = ifelse(sum(LINE_ICD_DGNS_VRSN_CD, na.rm = T) == 0, T, F)
+      icd_10_pure = ifelse(sum(LINE_ICD_DGNS_VRSN_CD, na.rm = T) == 0, T, F),
     ) %>%
     group_by(DESY_SORT_KEY) %>%
     mutate(
-      tot_cheap_prcdr = sum(
-        stress_test_count,
-        echocardiography_count,
-        cardiology_visit_count,na.rm = T),
-      tot_expensive_prcdr = sum(
-        catheterization_count,
-        cardiac_ct_count,
-        angioplasty_count
-        ,na.rm = T),
       year_first_diagnosed=year(first_diagnosis)                                      
     )%>%
     as.data.table()
 }
 
+
 #summary = summarise_expenditures_carrier(yearly_patient_conditions_carrier , diagnosis = "unstable_angina")
 #head(summary)
+
+
+
+
+
+
+
+
+add_cardiology_related_expenditures_carrier = function(data, summary_data, time_frame = 365, diagnosis){
+  
+  data%>%
+    group_by(DESY_SORT_KEY) %>%
+    filter(sum(eval(parse(
+      text = paste("is_", diagnosis, sep = "")
+    )), na.rm = T) == T) %>%
+    mutate(first_diagnosis = min(date[eval(parse(text = paste("is_", diagnosis, sep = ""))) ==
+                                        T]), na.rm = T) %>%
+    mutate( had_IHD = (
+      date - first_diagnosis < 0 &
+        first_diagnosis - date < time_frame &
+        is_IHD
+    ))%>%
+    filter(date - first_diagnosis >= 0 &
+             date - first_diagnosis < time_frame &
+             had_IHD == F &
+             is_cardiology_related,
+           .preserve = T) %>%
+    summarise(
+      tot_allowed_carrier_cardiology_related = sum(na.rm = T, LINE_ALOWD_CHRG_AMT),
+      office_visit_count_cardiology_related = sum(na.rm = T, is_office_visit),
+      office_visit_cost_carrier_cardiology_related = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_office_visit),
+      cardiology_visit_count_cardiology_related = sum(na.rm = T, is_cardiology_office_vist),
+      distinct_clinicians_cardiology_related = length(unique(PRF_PHYSN_NPI)),
+      distinct_cardiologists_cardiology_related = length(.[is_by_cardiologist, unique(PRF_PHYSN_NPI)]),
+      distinct_primary_care_physicians_cardiology_related = length(.[is_by_primary_care_physician, unique(PRF_PHYSN_NPI)]),
+      distinct_surgeons_cardiology_related = length(.[is_by_surgeon, unique(PRF_PHYSN_NPI)]),
+      distinct_other_specialties_cardiology_related = length(.[is_by_surgeon==F &
+                                           is_by_cardiologist==F &
+                                           is_by_primary_care_physician==F
+                                           , unique(PRF_PHYSN_NPI)]),
+      catheterization_count_cardiology_related = sum(na.rm = T, is_catheterization),
+      catheterization_cost_carrier_cardiology_related = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_catheterization),
+      ecg_count_cardiology_related = sum(na.rm = T, is_ecg),
+      ecg_cost_carrier_cardiology_related = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_ecg),
+      cardiac_ct_count_cardiology_related = sum(na.rm = T, is_cardiac_ct),
+      cardiac_ct_cost_carrier_cardiology_related = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_cardiac_ct),
+      cardiac_mri_count_cardiology_related = sum(na.rm = T, is_cardiac_mri),
+      cardiac_mri_cost_carrier_cardiology_related = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_cardiac_mri),
+      stress_test_count_cardiology_related = sum(na.rm = T, is_stress_test),
+      stress_test_cost_carrier_cardiology_related = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_stress_test),
+      echocardiography_count_cardiology_related = sum(na.rm = T, is_echocardiography),
+      echocardiography_cost_carrier_cardiology_related = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_echocardiography),
+      angioplasty_count_cardiology_related = sum(na.rm = T, is_angioplasty),
+      angioplasty_cost_carrier_cardiology_related = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_angioplasty),
+      CABG_count_cardiology_related = sum(na.rm = T, is_CABG),
+      CABG_cost_carrier_cardiology_related = sum(na.rm = T, LINE_ALOWD_CHRG_AMT * is_CABG),
+    )%>%
+    left_join(summary_data, . , by = "DESY_SORT_KEY")%>%
+    as.data.table()
+}
+
+
+#summary_with_cardiology_related = add_cardiology_related_expenditures_carrier(yearly_patient_conditions_carrier, summary , diagnosis = "unstable_angina")
+#head(summary_with_cardiology_related)
+
+
 
 
 
@@ -366,8 +423,7 @@ outpatient_cost_adder=function(outpatient_and_revenue_center_data, summary_data,
   
   result=data%>%
   filter(date - first_diagnosis >= 0 &
-         date - first_diagnosis < time_frame &
-         is_cardiology_related
+         date - first_diagnosis < time_frame 
         ) %>%
   group_by(DESY_SORT_KEY) %>%
   summarise(
@@ -379,7 +435,16 @@ outpatient_cost_adder=function(outpatient_and_revenue_center_data, summary_data,
     stress_test_cost_outpatient = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_stress_test),
     echocardiography_cost_outpatient = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_echocardiography),
     angioplasty_cost_outpatient = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_angioplasty),
-    CABG_cost_outpatient = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_CABG)
+    CABG_cost_outpatient = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_CABG),
+    office_visit_cost_outpatient_cardiology_related = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_office_vist * is_cardiology_related),
+    catheterization_cost_outpatient_cardiology_related = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_catheterization * is_cardiology_related),
+    ecg_cost_outpatient_cardiology_related = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_ecg * is_cardiology_related),
+    cardiac_ct_cost_outpatient_cardiology_related = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_cardiac_ct * is_cardiology_related),
+    cardiac_mri_cost_outpatient_cardiology_related = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_cardiac_mri * is_cardiology_related),
+    stress_test_cost_outpatient_cardiology_related = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_stress_test * is_cardiology_related),
+    echocardiography_cost_outpatient_cardiology_related = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_echocardiography * is_cardiology_related),
+    angioplasty_cost_outpatient_cardiology_related = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_angioplasty * is_cardiology_related),
+    CABG_cost_outpatient_cardiology_related = sum(na.rm = T, REV_CNTR_TOT_CHRG_AMT * is_CABG * is_cardiology_related)
     )%>%
   left_join(summary_data,.,by="DESY_SORT_KEY")%>%
   mutate_if(is.double,~replace(., is.na(.), 0))%>%
@@ -392,7 +457,16 @@ outpatient_cost_adder=function(outpatient_and_revenue_center_data, summary_data,
     stress_test_cost = stress_test_cost_outpatient+stress_test_cost_carrier,
     echocardiography_cost = echocardiography_cost_outpatient+echocardiography_cost_carrier,
     angioplasty_cost = angioplasty_cost_outpatient+angioplasty_cost_carrier,
-    CABG_cost = CABG_cost_outpatient+CABG_cost_carrier
+    CABG_cost = CABG_cost_outpatient+CABG_cost_carrier,
+    office_visit_cost_cardiology_related = office_visit_cost_outpatient_cardiology_related+office_visit_cost_carrier_cardiology_related,
+    catheterization_cost_cardiology_related = catheterization_cost_outpatient_cardiology_related+catheterization_cost_carrier_cardiology_related,
+    ecg_cost_cardiology_related = ecg_cost_outpatient_cardiology_related+ecg_cost_carrier_cardiology_related,
+    cardiac_ct_cost_cardiology_related = cardiac_ct_cost_outpatient_cardiology_related+cardiac_ct_cost_carrier_cardiology_related,
+    cardiac_mri_cost_cardiology_related = cardiac_mri_cost_outpatient_cardiology_related+cardiac_mri_cost_carrier_cardiology_related,
+    stress_test_cost_cardiology_related = stress_test_cost_outpatient_cardiology_related+stress_test_cost_carrier_cardiology_related,
+    echocardiography_cost_cardiology_related = echocardiography_cost_outpatient_cardiology_related+echocardiography_cost_carrier_cardiology_related,
+    angioplasty_cost_cardiology_related = angioplasty_cost_outpatient_cardiology_related+angioplasty_cost_carrier_cardiology_related,
+    CABG_cost_cardiology_related = CABG_cost_outpatient_cardiology_related+CABG_cost_carrier_cardiology_related
   )%>%
   group_by(DESY_SORT_KEY)%>%
   mutate(
@@ -400,16 +474,26 @@ outpatient_cost_adder=function(outpatient_and_revenue_center_data, summary_data,
         stress_test_cost,
         echocardiography_cost,
         office_visit_cost,na.rm = T),
-      tot_expensive_prcdr_cost = sum(
+    tot_expensive_prcdr_cost = sum(
         catheterization_cost,
         cardiac_ct_cost,
         angioplasty_cost
-        ,na.rm = T))%>%
+        ,na.rm = T),
+    tot_cheap_prcdr_cost_cardiology_related = sum(
+        stress_test_cost_cardiology_related,
+        echocardiography_cost_cardiology_related,
+        office_visit_cost_cardiology_related,na.rm = T),
+    tot_expensive_prcdr_cost_cardiology_related = sum(
+        catheterization_cost_cardiology_related,
+        cardiac_ct_cost_cardiology_related,
+        angioplasty_cost_cardiology_related
+        ,na.rm = T)
+  )%>%
   as.data.table()
   return(result)
 }
 
-#summary_with_outpatient=outpatient_cost_adder(outpatient_and_revenue_center_data_sample,summary)
+#summary_with_outpatient=outpatient_cost_adder(outpatient_and_revenue_center_data,summary_with_cardiology_related)
 #head(summary_with_outpatient)
 
 
@@ -483,17 +567,21 @@ add_patient_characteristics = function(mbsf_data,summary_data){
   data = left_join(summary_data,mbsf_data,by="DESY_SORT_KEY") %>% as.data.frame()
   
   result=data%>%
-    mutate(age_at_diagnosis=patient_year_of_diagnosis_characteristic_finder(data,"AGE"),
-           state_at_diagnosis=patient_year_of_diagnosis_characteristic_finder(data,"STATE_CODE"),
-           ENTITLEMENT_BUY_IN_IND_sum=
-           rowSums(monthly_characteristics_finder(data,"ENTITLEMENT_BUY_IN_IND")==3 
-                   | monthly_characteristics_finder(data,"ENTITLEMENT_BUY_IN_IND")=="C"
-                   ,na.rm=T),
-           HMO_INDICATOR_sum=
-           rowSums(monthly_characteristics_finder(data,"HMO_INDICATOR")==0
-                   ,na.rm=T),
-           died_in_one_year_after_diagnosis=date_of_death_collapsed<first_diagnosis+365,
-           died_in_two_years_after_diagnosis=date_of_death_collapsed<first_diagnosis+730
+    mutate(   
+      state_code_at_diagnosis=patient_year_of_diagnosis_characteristic_finder(.,"STATE_CODE"),
+      county_code_at_diagnosis=patient_year_of_diagnosis_characteristic_finder(.,"COUNTY_CODE"),
+      sex_code_at_diagnosis=patient_year_of_diagnosis_characteristic_finder(.,"SEX_CODE"),
+      race_code_at_diagnosis=patient_year_of_diagnosis_characteristic_finder(.,"RACE_CODE"),
+      age_at_diagnosis=patient_year_of_diagnosis_characteristic_finder(.,"AGE"),
+      ENTITLEMENT_BUY_IN_IND_sum=
+      rowSums(monthly_characteristics_finder(data,"ENTITLEMENT_BUY_IN_IND")==3 
+              | monthly_characteristics_finder(data,"ENTITLEMENT_BUY_IN_IND")=="C"
+              ,na.rm=T),
+      HMO_INDICATOR_sum=
+      rowSums(monthly_characteristics_finder(data,"HMO_INDICATOR")==0
+              ,na.rm=T),
+      died_in_one_year_after_diagnosis=date_of_death_collapsed<first_diagnosis+365,
+      died_in_two_years_after_diagnosis=date_of_death_collapsed<first_diagnosis+730
           ) %>% 
   as.data.table()
   
@@ -510,7 +598,6 @@ add_patient_characteristics = function(mbsf_data,summary_data){
 
 
 #summary_with_patient_characteristics=add_patient_characteristics(mbsf_data,summary_with_outpatient)
-
 
 
 
@@ -592,8 +679,8 @@ add_comorbidity=function(data, summary_data, time_frame = 365){
 
 }
 
-#summary_with_patient_characteristics_comorbidity=add_comorbidity(data = carrier_sample, summary_data = summary_with_patient_characteristics)
-#summary_with_patient_characteristics_comorbidity
+#summary_with_patient_characteristics_comorbidity=add_comorbidity(data = carrier_data_all_years, summary_data = summary_with_patient_characteristics)
+#head(summary_with_patient_characteristics_comorbidity)
 
 
 
@@ -622,6 +709,7 @@ add_patient_NPI=function(data, summary_data, time_frame = 365){
       mutate(is_office_visit = HCPCS_CD %in% office_visit_codes)%>%
       group_by(DESY_SORT_KEY, PRF_PHYSN_NPI) %>%
       summarise(n = sum(is_office_visit,na.rm=T)) %>%
+      filter(n>0)%>%
       arrange(.by_group = T, desc(n))
   }
   
@@ -687,13 +775,112 @@ add_patient_NPI=function(data, summary_data, time_frame = 365){
   #)%>%
   #  as.data.table()
 
-  summary_data[, year_first_diagnosis := lubridate::year(first_diagnosis)]%>%
-    as.data.table()
+  #summary_data[, year_first_diagnosis := lubridate::year(first_diagnosis)]%>%
+    #as.data.table()
 
 }
 
-#summary_with_npi=add_patient_NPI(data = carrier_sample, summary_data = summary_with_patient_characteristics_comorbidity)
+#summary_with_npi=add_patient_NPI(data = carrier_data_all_years, summary_data = summary_with_patient_characteristics_comorbidity)
 #head(summary_with_npi)
+
+
+
+
+
+
+
+
+
+#adding most common physicians
+add_patient_NPI_2013=function(data, summary_data){
+
+  comorbidity_and_phys_data =
+    inner_join(data, summary_data[, c("DESY_SORT_KEY",
+                                "first_diagnosis",
+                                "icd_9_pure",
+                                "icd_10_pure")], by = "DESY_SORT_KEY") %>%
+    filter(date < as.IDate("2014-01-01")) %>%
+    as.data.table()
+  
+  patient_NPI_count_finder = function(data) {
+    result = data %>%
+      mutate(is_office_visit = HCPCS_CD %in% office_visit_codes)%>%
+      group_by(DESY_SORT_KEY, PRF_PHYSN_NPI) %>%
+      summarise(n = sum(is_office_visit,na.rm=T)) %>%
+      filter(n>0)%>%
+      arrange(.by_group = T, desc(n))
+  }
+  
+  patient_NPI_counts = patient_NPI_count_finder(comorbidity_and_phys_data)
+  
+  patient_NPI_counts = left_join(patient_NPI_counts,
+                                 distinct(data[, .(PRF_PHYSN_NPI, PRVDR_SPCLTY)]), by ="PRF_PHYSN_NPI")
+  
+  find_most_common = function(data) {
+    data %>%
+      group_by(DESY_SORT_KEY) %>%
+      arrange(.by_group = T, desc(n)) %>%
+      slice(1) %>%
+      as.data.table()
+  }
+  
+  find_most_common_by_specialty = function(data, specialty_code) {
+    data %>%
+      filter(PRVDR_SPCLTY %in% specialty_code) %>%
+      group_by(DESY_SORT_KEY) %>%
+      arrange(.by_group = T, desc(n)) %>%
+      slice(1) %>%
+      as.data.table()
+  }
+  
+  most_common_physician = find_most_common(patient_NPI_counts)
+  #primary care = 01:general practice/ family practice:08/ internal medicine:11/ geriatrics:38
+  most_common_primary_care_physician = find_most_common_by_specialty(patient_NPI_counts,
+                                                                     specialty_code = c("01", "08", "11", "38"))
+  most_common_cardiologists = find_most_common_by_specialty(patient_NPI_counts, specialty_code = c("06","C3"))
+  #most_common_interventional_cardiologists = find_most_common_by_specialty(patient_NPI_counts, specialty_code = "C3")
+  
+  most_common_physician = data.frame(most_common_physician) %>%
+    rename_with( ~ paste0("most_common_physician_2013_", .x))
+  most_common_primary_care_physician = data.frame(most_common_primary_care_physician) %>%
+    rename_with( ~ paste0("most_common_primary_care_physician_2013_", .x))
+  most_common_cardiologists = data.frame(most_common_cardiologists) %>%
+    rename_with( ~ paste0("most_common_cardiologist_2013_", .x))
+  #most_common_interventional_cardiologists = data.frame(most_common_interventional_cardiologists) %>%
+   # rename_with( ~ paste0("most_common_interventional_cardiologist_", .x))
+  
+  summary_data = left_join(
+    summary_data,
+    most_common_physician,
+    by = c("DESY_SORT_KEY" = "most_common_physician_2013_DESY_SORT_KEY")
+  )
+  summary_data = left_join(
+    summary_data,
+    most_common_primary_care_physician,
+    by = c("DESY_SORT_KEY" = "most_common_primary_care_physician_2013_DESY_SORT_KEY")
+  )
+  summary_data = left_join(
+    summary_data,
+    most_common_cardiologists,
+    by = c("DESY_SORT_KEY" = "most_common_cardiologist_2013_DESY_SORT_KEY")
+  )%>%
+  as.data.table()
+  
+  #summary_data = left_join(
+  #  summary_data,
+  #  most_common_interventional_cardiologists,
+  #  by = c("DESY_SORT_KEY" = "most_common_interventional_cardiologist_DESY_SORT_KEY")
+  #)%>%
+  #  as.data.table()
+
+  #summary_data[, year_first_diagnosis := lubridate::year(first_diagnosis)]%>%
+    #as.data.table()
+
+}
+
+#summary_with_npi_and_2013_npi=add_patient_NPI_2013(data = carrier_data_all_years, summary_data = summary_with_npi)
+#head(summary_with_npi_and_2013_npi)
+
 
 
 
@@ -710,23 +897,20 @@ yearly_calculator = function(data,mbsf_data,revenue_center_outpatient_data,diagn
   require(lubridate)
   require(dtplyr)
 
-  #physician_integration_stats = 
-  #physician_integration_finder(
-  #  data,
-  #  integration_threshold = 0.5)
-
-
-  result = data %>%
-    yearly_calculator_patient_conditions()%>%
-    summarise_expenditures_carrier(diagnosis = diagnosis) %>%
-    outpatient_cost_adder(revenue_center_outpatient_data, summary_data = .)%>%
-    add_patient_characteristics(mbsf_data = mbsf_data, summary_data = .)%>%
-    add_comorbidity(data = data, summary_data = .) %>%
-    add_patient_NPI(data = data, summary_data = .) %>%
-    as.data.table()
-    #add_integration_status(
-    #  data = .,
-    #  physician_integration_stats = physician_integration_stats)
+  yearly_patient_conditions_carrier =
+  data %>%
+  yearly_calculator_patient_conditions()%>%
+  as.data.table()
+  
+  result = 
+  summarise_expenditures_carrier(yearly_patient_conditions_carrier , diagnosis = diagnosis) %>%
+  add_cardiology_related_expenditures_carrier(yearly_patient_conditions_carrier, summary_data = . , diagnosis = diagnosis)%>%
+  outpatient_cost_adder(revenue_center_outpatient_data, summary_data = .)%>%
+  add_patient_characteristics(mbsf_data = mbsf_data, summary_data = .)%>%
+  add_comorbidity(data = data, summary_data = .) %>%
+  add_patient_NPI(data = data, summary_data = .) %>%
+  add_patient_NPI_2013(data=data , summary_data = .)%>%
+  as.data.table()
   
   return(result)
 
@@ -777,12 +961,26 @@ yearly_tot_outpatient=function(data,time_frame=365){
       PRNCPAL_DGNS_VRSN_CD == 9,
       as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))>=399 & 
       as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))<=459 ,NA)))%>%
-    filter(date>=first_diagnosis & date-first_diagnosis<time_frame & is_cardiology_related)%>%
+    filter(date>=first_diagnosis & date-first_diagnosis<time_frame)%>%
     group_by(DESY_SORT_KEY)%>%
     summarise(tot_allowed_outpatient=sum(CLM_TOT_CHRG_AMT))%>%
     as.data.table()
 }
 
+yearly_tot_outpatient_cardiology_related=function(data,time_frame=365){
+  data%>%
+  mutate(is_cardiology_related = if_else(
+    PRNCPAL_DGNS_VRSN_CD == 0,
+    substr(PRNCPAL_DGNS_CD, 0, 1) == "I",
+    if_else(
+      PRNCPAL_DGNS_VRSN_CD == 9,
+      as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))>=399 & 
+      as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))<=459 ,NA)))%>%
+    filter(date>=first_diagnosis & date-first_diagnosis<time_frame & is_cardiology_related)%>%
+    group_by(DESY_SORT_KEY)%>%
+    summarise(tot_allowed_outpatient_cardiology_related=sum(CLM_TOT_CHRG_AMT))%>%
+    as.data.table()
+}
 
 #inpatient
 yearly_calculator_inpatient=function (data, time_frame=365){
@@ -794,7 +992,7 @@ yearly_calculator_inpatient=function (data, time_frame=365){
       PRNCPAL_DGNS_VRSN_CD == 9,
       as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))>=399 & 
       as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))<=459 ,NA)))%>%
-    filter(date>=first_diagnosis & date-first_diagnosis<time_frame & is_cardiology_related)%>%
+    filter(date>=first_diagnosis & date-first_diagnosis<time_frame)%>%
     group_by(DESY_SORT_KEY)%>%
     summarise(tot_allowed_inpatient=sum(CLM_TOT_CHRG_AMT),
               number_of_hospitalizations=length(unique(date)[is.na(CLM_DRG_CD)==F]),
@@ -803,13 +1001,48 @@ yearly_calculator_inpatient=function (data, time_frame=365){
     as.data.table()
 }
 
+#inpatient
+yearly_calculator_inpatient_cardiology_related=function (data, time_frame=365){
+  data %>%
+  mutate(is_cardiology_related = if_else(
+    PRNCPAL_DGNS_VRSN_CD == 0,
+    substr(PRNCPAL_DGNS_CD, 0, 1) == "I",
+    if_else(
+      PRNCPAL_DGNS_VRSN_CD == 9,
+      as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))>=399 & 
+      as.numeric(substr(PRNCPAL_DGNS_CD, 0, 3))<=459 ,NA)))%>%
+    filter(date>=first_diagnosis & date-first_diagnosis<time_frame & is_cardiology_related)%>%
+    group_by(DESY_SORT_KEY)%>%
+    summarise(tot_allowed_inpatient_cardiology_related=sum(CLM_TOT_CHRG_AMT),
+              number_of_hospitalizations_cardiology_related=length(unique(date)[is.na(CLM_DRG_CD)==F]),
+    ) %>%
+    mutate(was_hospitalized_cardiology_related=number_of_hospitalizations_cardiology_related>0)%>%
+    as.data.table()
+}
+
 
 
 outpatient_tot_yearly_stable_angina=yearly_tot_outpatient(outpatient_data_all_years_stable_angina)
 inpatient_tot_yearly_stable_angina=yearly_calculator_inpatient(intpatient_data_all_years_stable_angina)
 
+outpatient_tot_yearly_stable_angina_cardiology_related=
+yearly_tot_outpatient_cardiology_related(outpatient_data_all_years_stable_angina)
+inpatient_tot_yearly_stable_angina_cardiology_related=
+yearly_calculator_inpatient_cardiology_related(intpatient_data_all_years_stable_angina)
+
+
 outpatient_tot_yearly_unstable_angina=yearly_tot_outpatient(outpatient_data_all_years_unstable_angina)
 inpatient_tot_yearly_unstable_angina=yearly_calculator_inpatient(intpatient_data_all_years_unstable_angina)
+
+outpatient_tot_yearly_unstable_angina_cardiology_related=
+yearly_tot_outpatient_cardiology_related(outpatient_data_all_years_unstable_angina)
+inpatient_tot_yearly_unstable_angina_cardiology_related=
+yearly_calculator_inpatient_cardiology_related(intpatient_data_all_years_unstable_angina)
+
+
+
+
+
 
 
 
@@ -819,25 +1052,51 @@ inpatient_tot_yearly_unstable_angina=yearly_calculator_inpatient(intpatient_data
 
 yearly_calculations_stable_angina=left_join(yearly_calcualtions_carrier_stable_angina, outpatient_tot_yearly_stable_angina, by="DESY_SORT_KEY")%>%as.data.table()
 yearly_calculations_stable_angina=left_join(yearly_calculations_stable_angina, inpatient_tot_yearly_stable_angina, by="DESY_SORT_KEY")%>%as.data.table()
+
+yearly_calculations_stable_angina=
+left_join(yearly_calculations_stable_angina, outpatient_tot_yearly_stable_angina_cardiology_related, by="DESY_SORT_KEY")%>%as.data.table()
+yearly_calculations_stable_angina=
+left_join(yearly_calculations_stable_angina, inpatient_tot_yearly_stable_angina_cardiology_related, by="DESY_SORT_KEY")%>%as.data.table()
+
 #finding the total expenditure in one year
 yearly_calculations_stable_angina[,total_exp:=sum(tot_allowed_carrier,tot_allowed_outpatient,tot_allowed_inpatient,na.rm = T),by=DESY_SORT_KEY]
 yearly_calculations_stable_angina[is.na(number_of_hospitalizations)==T,`:=`(number_of_hospitalizations=0,was_hospitalized=0)]
 yearly_calculations_stable_angina[is.na(tot_allowed_outpatient)==T,`:=`(tot_allowed_outpatient=0)]
 yearly_calculations_stable_angina[is.na(tot_allowed_inpatient)==T,`:=`(tot_allowed_inpatient=0)]
 
+yearly_calculations_stable_angina[,total_exp_cardiology_related:=sum(tot_allowed_carrier_cardiology_related,tot_allowed_outpatient_cardiology_related,tot_allowed_inpatient_cardiology_related,na.rm = T),by=DESY_SORT_KEY]
+yearly_calculations_stable_angina[is.na(number_of_hospitalizations_cardiology_related)==T,`:=`(number_of_hospitalizations_cardiology_related=0,was_hospitalized_cardiology_related=0)]
+yearly_calculations_stable_angina[is.na(tot_allowed_outpatient_cardiology_related)==T,`:=`(tot_allowed_outpatient_cardiology_related=0)]
+yearly_calculations_stable_angina[is.na(tot_allowed_inpatient_cardiology_related)==T,`:=`(tot_allowed_inpatient_cardiology_related=0)]
+
+
 
 #unstable angina
+
 yearly_calculations_unstable_angina=left_join(yearly_calcualtions_carrier_unstable_angina, outpatient_tot_yearly_unstable_angina, by="DESY_SORT_KEY")%>%as.data.table()
 yearly_calculations_unstable_angina=left_join(yearly_calculations_unstable_angina, inpatient_tot_yearly_unstable_angina, by="DESY_SORT_KEY")%>%as.data.table()
+
+yearly_calculations_unstable_angina=
+left_join(yearly_calculations_unstable_angina, outpatient_tot_yearly_unstable_angina_cardiology_related, by="DESY_SORT_KEY")%>%as.data.table()
+yearly_calculations_unstable_angina=
+left_join(yearly_calculations_unstable_angina, inpatient_tot_yearly_unstable_angina_cardiology_related, by="DESY_SORT_KEY")%>%as.data.table()
+
 #finding the total expenditure in one year
 yearly_calculations_unstable_angina[,total_exp:=sum(tot_allowed_carrier,tot_allowed_outpatient,tot_allowed_inpatient,na.rm = T),by=DESY_SORT_KEY]
 yearly_calculations_unstable_angina[is.na(number_of_hospitalizations)==T,`:=`(number_of_hospitalizations=0,was_hospitalized=0)]
 yearly_calculations_unstable_angina[is.na(tot_allowed_outpatient)==T,`:=`(tot_allowed_outpatient=0)]
 yearly_calculations_unstable_angina[is.na(tot_allowed_inpatient)==T,`:=`(tot_allowed_inpatient=0)]
 
+yearly_calculations_unstable_angina[,total_exp_cardiology_related:=sum(tot_allowed_carrier_cardiology_related,tot_allowed_outpatient_cardiology_related,tot_allowed_inpatient_cardiology_related,na.rm = T),by=DESY_SORT_KEY]
+yearly_calculations_unstable_angina[is.na(number_of_hospitalizations_cardiology_related)==T,`:=`(number_of_hospitalizations_cardiology_related=0,was_hospitalized_cardiology_related=0)]
+yearly_calculations_unstable_angina[is.na(tot_allowed_outpatient_cardiology_related)==T,`:=`(tot_allowed_outpatient_cardiology_related=0)]
+yearly_calculations_unstable_angina[is.na(tot_allowed_inpatient_cardiology_related)==T,`:=`(tot_allowed_inpatient_cardiology_related=0)]
 
-head(yearly_calculations_stable_angina)
-head(yearly_calculations_unstable_angina)
+
+
+
+
+
 
 
 
