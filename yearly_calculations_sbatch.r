@@ -890,7 +890,7 @@ add_patient_NPI_2013=function(data, summary_data){
 
 
 
-
+#combining all results
 yearly_calculator = function(data,mbsf_data,revenue_center_outpatient_data,diagnosis){
 
   require(tidyverse)
@@ -1048,6 +1048,8 @@ yearly_calculator_inpatient_cardiology_related(intpatient_data_all_years_unstabl
 
 
 
+
+
 #stable angina
 
 yearly_calculations_stable_angina=left_join(yearly_calcualtions_carrier_stable_angina, outpatient_tot_yearly_stable_angina, by="DESY_SORT_KEY")%>%as.data.table()
@@ -1068,6 +1070,7 @@ yearly_calculations_stable_angina[,total_exp_cardiology_related:=sum(tot_allowed
 yearly_calculations_stable_angina[is.na(number_of_hospitalizations_cardiology_related)==T,`:=`(number_of_hospitalizations_cardiology_related=0,was_hospitalized_cardiology_related=0)]
 yearly_calculations_stable_angina[is.na(tot_allowed_outpatient_cardiology_related)==T,`:=`(tot_allowed_outpatient_cardiology_related=0)]
 yearly_calculations_stable_angina[is.na(tot_allowed_inpatient_cardiology_related)==T,`:=`(tot_allowed_inpatient_cardiology_related=0)]
+
 
 
 
@@ -1102,6 +1105,7 @@ yearly_calculations_unstable_angina[is.na(tot_allowed_inpatient_cardiology_relat
 
 
 
+
 exclusive_hospital_code_finder = function (data,
                                            threshold=0.05,
                                            integrated_place_of_service_codes = c("19", "22"),
@@ -1124,6 +1128,9 @@ exclusive_hospital_code_finder = function (data,
 }
 
 exclusive_hospital_codes=exclusive_hospital_code_finder(carrier_data_all_years)
+
+
+
 
 
 
@@ -1188,6 +1195,12 @@ physician_integration_finder = function(data,
 }
 
 physician_integration_stats = physician_integration_finder(carrier_data_all_years,exclusive_hospital_codes=exclusive_hospital_codes)
+
+
+
+
+
+
 
 
 
@@ -1284,6 +1297,112 @@ melted_physician_integration_stats_stable_angina=add_integration_status(
 melted_physician_integration_stats_unstable_angina=add_integration_status(
   data = yearly_calculations_unstable_angina,
   physician_integration_stats = physician_integration_stats)
+
+
+
+
+
+
+
+
+
+#rename columns
+rename_last = function(data, how_many, new_names) {
+  total_cols = ncol(data)
+  setnames(data, (total_cols - how_many + 1):(total_cols), new_names)
+}
+add_integration_status_2013=function(data, physician_integration_stats){
+  
+  data=data[,c("DESY_SORT_KEY"
+              ,"first_diagnosis" 
+              ,"most_common_physician_2013_PRF_PHYSN_NPI"
+              ,"most_common_primary_care_physician_2013_PRF_PHYSN_NPI"
+              ,"most_common_cardiologist_2013_PRF_PHYSN_NPI"
+              #,"most_common_interventional_cardiologist_PRF_PHYSN_NPI"
+              )]
+  
+  most_common_physician = left_join(
+    data,
+    physician_integration_stats,
+    by = c(
+      "most_common_physician_2013_PRF_PHYSN_NPI" = "PRF_PHYSN_NPI")
+  ) %>% as.data.table()
+  rename_last(
+    most_common_physician,
+    ncol(physician_integration_stats)-1,
+    paste("most_common_physician_2013_",colnames(physician_integration_stats)[2:ncol(physician_integration_stats)],sep="")
+    )
+  most_common_physician=most_common_physician[,-c("most_common_primary_care_physician_2013_PRF_PHYSN_NPI"
+                                                  ,"most_common_cardiologist_2013_PRF_PHYSN_NPI"
+                                                  #,"most_common_interventional_cardiologist_PRF_PHYSN_NPI"
+                                                 )]
+    
+    
+  most_common_primary_care = left_join(
+    data,
+    physician_integration_stats,
+    by = c(
+      "most_common_primary_care_physician_2013_PRF_PHYSN_NPI" = "PRF_PHYSN_NPI")
+  ) %>% as.data.table()
+  rename_last(
+    most_common_primary_care,
+    ncol(physician_integration_stats)-1,
+    paste("most_common_primary_care_physician_2013_",colnames(physician_integration_stats)[2:ncol(physician_integration_stats)],sep="")
+    )
+  most_common_primary_care=most_common_primary_care[,-c("most_common_physician_2013_PRF_PHYSN_NPI"
+                                                  ,"most_common_cardiologist_2013_PRF_PHYSN_NPI"
+                                                  #,"most_common_interventional_cardiologist_PRF_PHYSN_NPI"
+                                                       )]  
+  
+  most_common_cardiologist = left_join(
+    data,
+    physician_integration_stats,
+    by = c(
+      "most_common_cardiologist_2013_PRF_PHYSN_NPI" = "PRF_PHYSN_NPI")
+  ) %>% as.data.table()
+  rename_last(
+    most_common_cardiologist,
+    ncol(physician_integration_stats)-1,
+    paste("most_common_cardiologist_2013_",colnames(physician_integration_stats)[2:ncol(physician_integration_stats)],sep="")
+    )
+  most_common_cardiologist=most_common_cardiologist[,-c("most_common_physician_2013_PRF_PHYSN_NPI"
+                                                  ,"most_common_primary_care_physician_2013_PRF_PHYSN_NPI"
+                                                  #,"most_common_interventional_cardiologist_PRF_PHYSN_NPI"
+                                                       )]
+  
+  #most_common_interventional_cardiologist = left_join(
+  #  data,
+  #  physician_integration_stats,
+  #  by = c(
+  #    "most_common_interventional_cardiologist_PRF_PHYSN_NPI" = "PRF_PHYSN_NPI")
+  #) %>% as.data.table()
+  #rename_last(
+  #  most_common_interventional_cardiologist,
+  #  ncol(physician_integration_stats)-1,
+  #  paste("most_common_interventional_cardiologist_",colnames(physician_integration_stats)[2:ncol(physician_integration_stats)],sep="")
+  #  )
+  #most_common_interventional_cardiologist=most_common_interventional_cardiologist[,-c("most_common_physician_PRF_PHYSN_NPI"
+  #                                                ,"most_common_primary_care_physician_PRF_PHYSN_NPI"
+  #                                                ,"most_common_cardiologist_PRF_PHYSN_NPI")]
+  
+  return(list(most_common_physician,
+              most_common_primary_care,
+              most_common_cardiologist
+              #most_common_interventional_cardiologist
+             ))
+}
+
+melted_physician_integration_stats_2013_stable_angina=add_integration_status_2013(
+  data = yearly_calculations_stable_angina,
+  physician_integration_stats = physician_integration_stats)
+
+melted_physician_integration_stats_2013_unstable_angina=add_integration_status_2013(
+  data = yearly_calculations_unstable_angina,
+  physician_integration_stats = physician_integration_stats)
+
+
+
+
 
 
 
@@ -1398,7 +1517,129 @@ change_stats_summarizer_non_exclusive_only = function(data,melted_physician_inte
   
 }
 
-change_stats_summarized_non_exclusive_HCPCS=change_stats_summarizer_non_exclusive_only(yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[3]],"cardiologist")
+
+
+
+
+
+
+
+
+
+change_stats_summarizer_non_exclusive_only_2013 = function(data,melted_physician_integration_stats_2013,specialty){
+
+  require(dtplyr)
+  require(lubridate)
+  require(tidyverse)
+
+  looking_for=paste("most_common_",specialty,"_2013_PRF_PHYSN_NPI",sep="")
+  date_looking_for=paste("most_common_",specialty,"_2013_date",sep="")
+  in_facility_prp_looking_for=paste("most_common_",specialty,"_2013_in_facility_non_exclusive_HCPCS_prp",sep="")
+  in_all_count_looking_for=paste("most_common_",specialty,"_2013_in_all_non_exclusive_HCPCS_count",sep="")
+  in_facility_count_looking_for=paste("most_common_",specialty,"_2013_in_facility_non_exclusive_HCPCS_count",sep="")
+  
+  
+  result=melted_physician_integration_stats_2013%>%
+  group_by(DESY_SORT_KEY)%>%
+  mutate(n_integration_stat_year_of_diagnosis=
+         .[!!rlang::sym(date_looking_for)-first_diagnosis<=365 &
+           !!rlang::sym(date_looking_for)-first_diagnosis>=0 &
+           !is.na(!!rlang::sym(in_facility_prp_looking_for)) ,
+           length(!!rlang::sym(in_facility_prp_looking_for))],
+         
+         n_integration_stat_2013=
+         .[!!rlang::sym(date_looking_for)<as.IDate("2013-12-31") &
+           !is.na(!!rlang::sym(in_facility_prp_looking_for)) ,
+           length(!!rlang::sym(in_facility_prp_looking_for))],
+         
+         n_integration_stat_year_before_diagnosis=
+         .[!!rlang::sym(date_looking_for)-first_diagnosis<=0 &
+           first_diagnosis-!!rlang::sym(date_looking_for)<=365 &
+           !is.na(!!rlang::sym(in_facility_prp_looking_for)) ,
+           length(!!rlang::sym(in_facility_prp_looking_for))]
+         
+        )%>%
+  
+  summarise(prp_in_year_of_diagnosis_05_non_exclusive_HCPCS=
+         .[!!rlang::sym(date_looking_for)-first_diagnosis<=365 &
+           !!rlang::sym(date_looking_for)-first_diagnosis>=0,
+           sum(!!rlang::sym(in_facility_prp_looking_for)>=0.5 , na.rm=T)]/
+         n_integration_stat_year_of_diagnosis,
+         
+         prp_in_2013_05_non_exclusive_HCPCS=
+         .[!!rlang::sym(date_looking_for)<as.IDate("2013-12-31"),
+           sum(!!rlang::sym(in_facility_prp_looking_for)>=0.5, na.rm=T)]/
+         n_integration_stat_2013,
+         
+         prp_in_year_before_diagnosis_05_non_exclusive_HCPCS=
+            .[!!rlang::sym(date_looking_for)-first_diagnosis<=0 &
+              first_diagnosis-!!rlang::sym(date_looking_for)<=365,
+              sum(!!rlang::sym(in_facility_prp_looking_for)>=0.5, na.rm=T)]/
+         n_integration_stat_year_before_diagnosis,
+         
+         prp_in_year_of_diagnosis_03_non_exclusive_HCPCS=
+         .[!!rlang::sym(date_looking_for)-first_diagnosis<=365 &
+           !!rlang::sym(date_looking_for)-first_diagnosis>=0,
+           sum(!!rlang::sym(in_facility_prp_looking_for)>=0.3, na.rm=T)]/
+         n_integration_stat_year_of_diagnosis,
+         
+         prp_in_2013_03_non_exclusive_HCPCS=
+         .[!!rlang::sym(date_looking_for)<as.IDate("2013-12-31"),
+           sum(!!rlang::sym(in_facility_prp_looking_for)>=0.3, na.rm=T)]/
+         n_integration_stat_2013,
+         
+         prp_in_year_before_diagnosis_03_non_exclusive_HCPCS=
+            .[!!rlang::sym(date_looking_for)-first_diagnosis<=0 &
+              first_diagnosis-!!rlang::sym(date_looking_for)<=365,
+              sum(!!rlang::sym(in_facility_prp_looking_for)>=0.3, na.rm=T)]/
+         n_integration_stat_year_before_diagnosis,
+         
+        avg_in_year_of_diagnosis_non_exclusive_HCPCS=
+         .[!!rlang::sym(date_looking_for)-first_diagnosis<=365 &
+           !!rlang::sym(date_looking_for)-first_diagnosis>=0,
+           sum(!!rlang::sym(in_facility_count_looking_for), na.rm=T) / sum(!!rlang::sym(in_all_count_looking_for), na.rm=T)],
+
+         
+         avg_in_2013_non_exclusive_HCPCS=
+         .[!!rlang::sym(date_looking_for)<as.IDate("2013-12-31"),
+           sum(!!rlang::sym(in_facility_count_looking_for), na.rm=T) / sum(!!rlang::sym(in_all_count_looking_for), na.rm=T)],
+         
+         avg_in_year_before_diagnosis_non_exclusive_HCPCS=
+            .[!!rlang::sym(date_looking_for)-first_diagnosis<=0 &
+              first_diagnosis-!!rlang::sym(date_looking_for)<=365,
+              sum(!!rlang::sym(in_facility_count_looking_for), na.rm=T) / sum(!!rlang::sym(in_all_count_looking_for), na.rm=T)]
+
+        )%>%
+  distinct()%>%
+  as.data.table()
+  
+  #rename last n columns in a dataset
+  rename_last = function(data, how_many, new_names) {
+    total_cols = ncol(data)
+    setnames(data, (total_cols - how_many + 1):(total_cols), new_names)
+  }
+  
+  rename_last(
+    result,
+    9,
+    paste(specialty,"2013",colnames(result)[(ncol(result)-8):ncol(result)],sep="_")
+    )
+  
+  data = left_join(
+    data,
+    result,
+    by = "DESY_SORT_KEY"
+  ) %>% as.data.table()
+  
+  return(data)
+  
+}
+
+
+
+
+
+
 
 
 
@@ -1424,6 +1665,26 @@ yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
 
 
 
+yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only_2013(
+  yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[1]],"physician")
+yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only_2013(
+  yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[2]],"primary_care_physician")
+yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only_2013(
+  yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[3]],"cardiologist")
+#yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only_2013(
+#  yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[4]],"interventional_cardiologist")
+
+yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[1]],"physician")
+yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[2]],"primary_care_physician")
+yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[3]],"cardiologist")
+#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
+#  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[4]],"interventional_cardiologist")
+
+
+
 head(yearly_calculations_stable_angina)
 head(yearly_calculations_unstable_angina)
 
@@ -1442,4 +1703,5 @@ write.csv(yearly_calculations_stable_angina,
           "results_apr/yearly_calculations_stable_angina_with_integration.csv") 
 write.csv(yearly_calculations_unstable_angina,
           "results_apr/yearly_calculations_unstable_angina_with_integration.csv")
+
 
