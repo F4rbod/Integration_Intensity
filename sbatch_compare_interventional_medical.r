@@ -2,7 +2,7 @@ setwd("/work/postresearch/Shared/Projects/Farbod")
 options(repr.matrix.max.rows=100, repr.matrix.max.cols=300)
 options(repr.plot.width = 20, repr.plot.height = 15)
 
-numcores=54
+numcores=90
 
 library(tidyverse)
 library(parallel)
@@ -92,9 +92,8 @@ diabetes_icd_10_codes=c("E08","E09","E10","E11","E13")
 
 
 
-carrier_data_all_years = read_fst(
-    "carrier_data_all_years.fst", as.data.table = T)
-
+carrier_data_all_years = read_fst("carrier_data_all_years.fst", as.data.table = T)
+head(carrier_data_all_years)
 
 
 
@@ -214,12 +213,16 @@ yearly_calculations_unstable_angina =
 read_fst("results_apr/yearly_calculations_unstable_angina_with_integration.fst"
          ,as.data.table = T)
 
+head(yearly_calculations_unstable_angina)
+
 data_for_comparison_stable_angina=
 inner_join(yearly_calculations_stable_angina,yearly_patient_conditions_carrier,by = "DESY_SORT_KEY") %>% as.data.table
 
 data_for_comparison_unstable_angina=
 inner_join(yearly_calculations_unstable_angina,yearly_patient_conditions_carrier,by = "DESY_SORT_KEY") %>% as.data.table
+
 head(data_for_comparison_stable_angina)
+head(data_for_comparison_unstable_angina)
 
 
 

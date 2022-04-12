@@ -3,11 +3,11 @@
 #SBATCH --partition=short
 #SBATCH --nodes=1
 #SBATCH --ntasks 1
-#SBATCH --cpus-per-task 56
+#SBATCH --cpus-per-task 128
 #SBATCH --time=24:00:00
-#SBATCH --mem=178G
+#SBATCH --mem=500G
 #SBATCH --export=ALL
-#SBATCH --constraint=cascadelake
+#SBATCH --constraint=zen2
 
 module load R && module load nodejs && module load anaconda3 ;
 cd /work/postresearch/ ;
