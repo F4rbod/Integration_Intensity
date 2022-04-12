@@ -93,7 +93,7 @@ diabetes_icd_10_codes=c("E08","E09","E10","E11","E13")
 
 
 carrier_data_all_years = read_fst(
-    "carrier_data_all_years.fst", as.data.table = T,to = 1000000)
+    "carrier_data_all_years.fst", as.data.table = T)
 
 
 
