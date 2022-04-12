@@ -2,8 +2,7 @@ setwd("/work/postresearch/Shared/Projects/Farbod")
 options(repr.matrix.max.rows=100, repr.matrix.max.cols=300)
 options(repr.plot.width = 20, repr.plot.height = 15)
 
-numcores=8
-numcores_foreach=8
+numcores=56
 
 library(tidyverse)
 library(parallel)
@@ -21,11 +20,6 @@ library(dplyr)
 `%!in%` = Negate(`%in%`)
 
 setDTthreads(numcores)
-
-
-library(foreach)
-library(doMC)
-registerDoMC(cores=numcores_foreach)
 
 
 
@@ -364,8 +358,11 @@ compare_interventional_to_medical=function(data){
 
 
 
-interventional_vs_medical_stable_angine=compare_interventional_to_medical(data=data_for_comparison_stable_angina)
-interventional_vs_medical_unstable_angine=compare_interventional_to_medical(data=data_for_comparison_unstable_angina)
+interventional_vs_medical_stable_angina=compare_interventional_to_medical(data=data_for_comparison_stable_angina)
+interventional_vs_medical_unstable_angina=compare_interventional_to_medical(data=data_for_comparison_unstable_angina)
 
 
-head(interventional_vs_medical_stable_angine)
+head(interventional_vs_medical_stable_angina)
+
+write_fst(interventional_vs_medical_stable_angina,"interventional_vs_medical_stable_angina.fst")
+write_fst(interventional_vs_medical_unstable_angina,"interventional_vs_medical_unstable_angina.fst")
