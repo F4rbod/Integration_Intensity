@@ -295,17 +295,27 @@ summarise_expenditures_carrier = function(data, time_frame = 365, diagnosis){
       diabetes = sum(is_diabetes, na.rm = T) > 0,
       icd_9_pure = ifelse(prod(LINE_ICD_DGNS_VRSN_CD, na.rm = T) == 0, F, T),
       icd_10_pure = ifelse(sum(LINE_ICD_DGNS_VRSN_CD, na.rm = T) == 0, T, F),
+      catheterization_date = head(.[is_catheterization,date],1),
+      angioplasty_date = head(.[is_angioplasty,date],1),
+      catheterization_doc_NPI = head(.[is_catheterization,PRF_PHYSN_NPI],1),
+      angioplasty_doc_NPI = head(.[is_angioplasty,PRF_PHYSN_NPI],1),
+      diagnosing_doc_NPI = head(.[eval(parse(text = paste("is_", diagnosis, sep = ""))),
+                                                        PRF_PHYSN_NPI],1)
     ) %>%
     group_by(DESY_SORT_KEY) %>%
     mutate(
-      year_first_diagnosed=year(first_diagnosis)                                      
+      year_first_diagnosed=year(first_diagnosis),
+      time_difference_angio_cath = angioplasty_date-catheterization_date,
+      angioplasty_with_cath = angioplasty_date-catheterization_date==0,
+      angioplasty_during_year_after_cath = angioplasty_date-catheterization_date<=365,
     )%>%
     as.data.table()
 }
 
 
-#summary = summarise_expenditures_carrier(yearly_patient_conditions_carrier , diagnosis = "unstable_angina")
-#head(summary)
+summary = summarise_expenditures_carrier(yearly_patient_conditions_carrier , diagnosis = "unstable_angina")
+head(summary)
+
 
 
 
@@ -368,8 +378,8 @@ add_cardiology_related_expenditures_carrier = function(data, summary_data, time_
 }
 
 
-#summary_with_cardiology_related = add_cardiology_related_expenditures_carrier(yearly_patient_conditions_carrier, summary , diagnosis = "unstable_angina")
-#head(summary_with_cardiology_related)
+summary_with_cardiology_related = add_cardiology_related_expenditures_carrier(yearly_patient_conditions_carrier, summary , diagnosis = "unstable_angina")
+head(summary_with_cardiology_related)
 
 
 
@@ -487,14 +497,33 @@ outpatient_cost_adder=function(outpatient_and_revenue_center_data, summary_data,
         catheterization_cost_cardiology_related,
         cardiac_ct_cost_cardiology_related,
         angioplasty_cost_cardiology_related
+        ,na.rm = T),
+    
+    tot_cheap_prcdr_count = sum(
+        stress_test_count,
+        echocardiography_count,
+        office_visit_count,na.rm = T),
+    tot_expensive_prcdr_count = sum(
+        catheterization_count,
+        cardiac_ct_count,
+        angioplasty_count
+        ,na.rm = T),
+    tot_cheap_prcdr_count_cardiology_related = sum(
+        stress_test_count_cardiology_related,
+        echocardiography_count_cardiology_related,
+        office_visit_count_cardiology_related,na.rm = T),
+    tot_expensive_prcdr_count_cardiology_related = sum(
+        catheterization_count_cardiology_related,
+        cardiac_ct_count_cardiology_related,
+        angioplasty_count_cardiology_related
         ,na.rm = T)
   )%>%
   as.data.table()
   return(result)
 }
 
-#summary_with_outpatient=outpatient_cost_adder(outpatient_and_revenue_center_data,summary_with_cardiology_related)
-#head(summary_with_outpatient)
+summary_with_outpatient=outpatient_cost_adder(outpatient_and_revenue_center_data,summary_with_cardiology_related)
+head(summary_with_outpatient)
 
 
 
@@ -581,7 +610,8 @@ add_patient_characteristics = function(mbsf_data,summary_data){
       rowSums(monthly_characteristics_finder(data,"HMO_INDICATOR")==0
               ,na.rm=T),
       died_in_one_year_after_diagnosis=date_of_death_collapsed<first_diagnosis+365,
-      died_in_two_years_after_diagnosis=date_of_death_collapsed<first_diagnosis+730
+      died_in_two_years_after_diagnosis=date_of_death_collapsed<first_diagnosis+730,
+      date_difference_diagnosis_death=date_of_death_collapsed-first_diagnosis
           ) %>% 
   as.data.table()
   
@@ -598,7 +628,7 @@ add_patient_characteristics = function(mbsf_data,summary_data){
 
 
 #summary_with_patient_characteristics=add_patient_characteristics(mbsf_data,summary_with_outpatient)
-
+#head(summary_with_patient_characteristics)
 
 
 
