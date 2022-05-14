@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#SBATCH --partition=short
+#SBATCH --nodes=1
+#SBATCH --ntasks 1
+#SBATCH --cpus-per-task 128
+#SBATCH --time=24:00:00
+#SBATCH --mem=500G
+#SBATCH --export=ALL
+
+module load R && module load nodejs && module load anaconda3 ;
+cd /work/postresearch/ ;
+Rscript Shared/Projects/Farbod/Integration_Intensity/yearly_calculations_sbatch.r
