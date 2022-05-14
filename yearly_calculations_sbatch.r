@@ -225,8 +225,8 @@ yearly_calculator_patient_conditions = function(data) {
     as.data.table()
 }
 
-#yearly_patient_conditions_carrier=yearly_calculator_patient_conditions(carrier_data_all_years)
-#head(yearly_patient_conditions_carrier)
+yearly_patient_conditions_carrier=yearly_calculator_patient_conditions(carrier_data_all_years)
+head(yearly_patient_conditions_carrier)
 
 
 
