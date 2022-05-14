@@ -2,8 +2,8 @@ setwd("/work/postresearch/Shared/Projects/Farbod")
 options(repr.matrix.max.rows=100, repr.matrix.max.cols=300)
 options(repr.plot.width = 20, repr.plot.height = 15)
 
-numcores=64
-numcores_foreach=10
+numcores=120
+numcores_foreach=8
 
 library(tidyverse)
 library(parallel)
