@@ -2,8 +2,8 @@ setwd("/work/postresearch/Shared/Projects/Farbod")
 options(repr.matrix.max.rows=100, repr.matrix.max.cols=300)
 options(repr.plot.width = 20, repr.plot.height = 15)
 
-numcores=120
-numcores_foreach=8
+numcores=55
+numcores_foreach=55
 
 library(tidyverse)
 library(parallel)
@@ -1241,11 +1241,14 @@ rename_last = function(data, how_many, new_names) {
 }
 add_integration_status=function(data, physician_integration_stats){
   
-  data=data[,c("DESY_SORT_KEY"	
-              ,"first_diagnosis" 
-              ,"most_common_physician_PRF_PHYSN_NPI"
-              ,"most_common_primary_care_physician_PRF_PHYSN_NPI"
-              ,"most_common_cardiologist_PRF_PHYSN_NPI"
+  data=data[,c("DESY_SORT_KEY",
+               "first_diagnosis",
+               "most_common_physician_PRF_PHYSN_NPI",
+               "most_common_primary_care_physician_PRF_PHYSN_NPI",
+               "most_common_cardiologist_PRF_PHYSN_NPI",
+               'catheterization_doc_NPI',
+               'angioplasty_doc_NPI',
+               'diagnosing_doc_NPI'
               #,"most_common_interventional_cardiologist_PRF_PHYSN_NPI"
               )]
   
@@ -1260,9 +1263,11 @@ add_integration_status=function(data, physician_integration_stats){
     ncol(physician_integration_stats)-1,
     paste("most_common_physician_",colnames(physician_integration_stats)[2:ncol(physician_integration_stats)],sep="")
     )
-  most_common_physician=most_common_physician[,-c("most_common_primary_care_physician_PRF_PHYSN_NPI"
-                                                  ,"most_common_cardiologist_PRF_PHYSN_NPI"
-                                                  #,"most_common_interventional_cardiologist_PRF_PHYSN_NPI"
+  most_common_physician=most_common_physician[,-c("most_common_primary_care_physician_PRF_PHYSN_NPI",
+                                                  "most_common_cardiologist_PRF_PHYSN_NPI",
+                                                  'catheterization_doc_NPI',
+                                                  'angioplasty_doc_NPI',
+                                                  'diagnosing_doc_NPI'
                                                  )]
     
     
@@ -1277,10 +1282,11 @@ add_integration_status=function(data, physician_integration_stats){
     ncol(physician_integration_stats)-1,
     paste("most_common_primary_care_physician_",colnames(physician_integration_stats)[2:ncol(physician_integration_stats)],sep="")
     )
-  most_common_primary_care=most_common_primary_care[,-c("most_common_physician_PRF_PHYSN_NPI"
-                                                  ,"most_common_cardiologist_PRF_PHYSN_NPI"
-                                                  #,"most_common_interventional_cardiologist_PRF_PHYSN_NPI"
-                                                       )]  
+  most_common_primary_care=most_common_primary_care[,-c("most_common_physician_PRF_PHYSN_NPI",
+                                                        "most_common_cardiologist_PRF_PHYSN_NPI",
+                                                        'catheterization_doc_NPI',
+                                                        'angioplasty_doc_NPI',
+                                                        'diagnosing_doc_NPI')]  
   
   most_common_cardiologist = left_join(
     data,
@@ -1293,30 +1299,70 @@ add_integration_status=function(data, physician_integration_stats){
     ncol(physician_integration_stats)-1,
     paste("most_common_cardiologist_",colnames(physician_integration_stats)[2:ncol(physician_integration_stats)],sep="")
     )
-  most_common_cardiologist=most_common_cardiologist[,-c("most_common_physician_PRF_PHYSN_NPI"
-                                                  ,"most_common_primary_care_physician_PRF_PHYSN_NPI"
-                                                  #,"most_common_interventional_cardiologist_PRF_PHYSN_NPI"
-                                                       )]
+  most_common_cardiologist=most_common_cardiologist[,-c("most_common_physician_PRF_PHYSN_NPI",
+                                                        "most_common_primary_care_physician_PRF_PHYSN_NPI",
+                                                        'catheterization_doc_NPI',
+                                                        'angioplasty_doc_NPI',
+                                                        'diagnosing_doc_NPI')]
+  diagnosing_doc = left_join(
+    data,
+    physician_integration_stats,
+    by = c(
+      "diagnosing_doc_NPI" = "PRF_PHYSN_NPI")
+  ) %>% as.data.table()
+  rename_last(
+    diagnosing_doc,
+    ncol(physician_integration_stats)-1,
+    paste("diagnosing_doc_",colnames(physician_integration_stats)[2:ncol(physician_integration_stats)],sep="")
+    )
+  diagnosing_doc=diagnosing_doc[,-c("most_common_physician_PRF_PHYSN_NPI",
+                                    "most_common_cardiologist_PRF_PHYSN_NPI",
+                                    "most_common_primary_care_physician_PRF_PHYSN_NPI",
+                                    'catheterization_doc_NPI',
+                                    'angioplasty_doc_NPI')]
+                                                       
   
-  #most_common_interventional_cardiologist = left_join(
-  #  data,
-  #  physician_integration_stats,
-  #  by = c(
-  #    "most_common_interventional_cardiologist_PRF_PHYSN_NPI" = "PRF_PHYSN_NPI")
-  #) %>% as.data.table()
-  #rename_last(
-  #  most_common_interventional_cardiologist,
-  #  ncol(physician_integration_stats)-1,
-  #  paste("most_common_interventional_cardiologist_",colnames(physician_integration_stats)[2:ncol(physician_integration_stats)],sep="")
-  #  )
-  #most_common_interventional_cardiologist=most_common_interventional_cardiologist[,-c("most_common_physician_PRF_PHYSN_NPI"
-  #                                                ,"most_common_primary_care_physician_PRF_PHYSN_NPI"
-  #                                                ,"most_common_cardiologist_PRF_PHYSN_NPI")]
+  catheterization_doc = left_join(
+    data,
+    physician_integration_stats,
+    by = c(
+      'catheterization_doc_NPI' = "PRF_PHYSN_NPI")
+  ) %>% as.data.table()
+  rename_last(
+    catheterization_doc,
+    ncol(physician_integration_stats)-1,
+    paste("catheterization_doc_",colnames(physician_integration_stats)[2:ncol(physician_integration_stats)],sep="")
+    )
+  catheterization_doc=catheterization_doc[,-c("most_common_physician_PRF_PHYSN_NPI",
+                                                        "most_common_cardiologist_PRF_PHYSN_NPI",
+                                                        "most_common_primary_care_physician_PRF_PHYSN_NPI",
+                                                        'angioplasty_doc_NPI',
+                                                        'diagnosing_doc_NPI')]
+  
+  angioplasty_doc = left_join(
+    data,
+    physician_integration_stats,
+    by = c(
+      "angioplasty_doc_NPI" = "PRF_PHYSN_NPI")
+  ) %>% as.data.table()
+  rename_last(
+    angioplasty_doc,
+    ncol(physician_integration_stats)-1,
+    paste("angioplasty_doc_",colnames(physician_integration_stats)[2:ncol(physician_integration_stats)],sep="")
+    )
+  angioplasty_doc=angioplasty_doc[,-c("most_common_physician_PRF_PHYSN_NPI",
+                                                        "most_common_cardiologist_PRF_PHYSN_NPI",
+                                                        "most_common_primary_care_physician_PRF_PHYSN_NPI",
+                                                        'catheterization_doc_NPI',
+                                                        'diagnosing_doc_NPI')]
+  
   
   return(list(most_common_physician,
               most_common_primary_care,
-              most_common_cardiologist
-              #most_common_interventional_cardiologist
+              most_common_cardiologist,
+              diagnosing_doc,
+              catheterization_doc,
+              angioplasty_doc
              ))
 }
 
@@ -1327,6 +1373,7 @@ melted_physician_integration_stats_stable_angina=add_integration_status(
 melted_physician_integration_stats_unstable_angina=add_integration_status(
   data = yearly_calculations_unstable_angina,
   physician_integration_stats = physician_integration_stats)
+
 
 
 
@@ -1444,11 +1491,11 @@ change_stats_summarizer_non_exclusive_only = function(data,melted_physician_inte
   require(lubridate)
   require(tidyverse)
 
-  looking_for=paste("most_common_",specialty,"_PRF_PHYSN_NPI",sep="")
-  date_looking_for=paste("most_common_",specialty,"_date",sep="")
-  in_facility_prp_looking_for=paste("most_common_",specialty,"_in_facility_non_exclusive_HCPCS_prp",sep="")
-  in_all_count_looking_for=paste("most_common_",specialty,"_in_all_non_exclusive_HCPCS_count",sep="")
-  in_facility_count_looking_for=paste("most_common_",specialty,"_in_facility_non_exclusive_HCPCS_count",sep="")
+  looking_for=paste(specialty,"_PRF_PHYSN_NPI",sep="")
+  date_looking_for=paste(specialty,"_date",sep="")
+  in_facility_prp_looking_for=paste(specialty,"_in_facility_non_exclusive_HCPCS_prp",sep="")
+  in_all_count_looking_for=paste(specialty,"_in_all_non_exclusive_HCPCS_count",sep="")
+  in_facility_count_looking_for=paste(specialty,"_in_facility_non_exclusive_HCPCS_count",sep="")
   
   
   result=melted_physician_integration_stats%>%
@@ -1556,17 +1603,21 @@ change_stats_summarizer_non_exclusive_only = function(data,melted_physician_inte
 
 
 
+
+
+
+
 change_stats_summarizer_non_exclusive_only_2013 = function(data,melted_physician_integration_stats_2013,specialty){
 
   require(dtplyr)
   require(lubridate)
   require(tidyverse)
 
-  looking_for=paste("most_common_",specialty,"_2013_PRF_PHYSN_NPI",sep="")
-  date_looking_for=paste("most_common_",specialty,"_2013_date",sep="")
-  in_facility_prp_looking_for=paste("most_common_",specialty,"_2013_in_facility_non_exclusive_HCPCS_prp",sep="")
-  in_all_count_looking_for=paste("most_common_",specialty,"_2013_in_all_non_exclusive_HCPCS_count",sep="")
-  in_facility_count_looking_for=paste("most_common_",specialty,"_2013_in_facility_non_exclusive_HCPCS_count",sep="")
+  looking_for=paste(specialty,"_2013_PRF_PHYSN_NPI",sep="")
+  date_looking_for=paste(specialty,"_2013_date",sep="")
+  in_facility_prp_looking_for=paste(specialty,"_2013_in_facility_non_exclusive_HCPCS_prp",sep="")
+  in_all_count_looking_for=paste(specialty,"_2013_in_all_non_exclusive_HCPCS_count",sep="")
+  in_facility_count_looking_for=paste(specialty,"_2013_in_facility_non_exclusive_HCPCS_count",sep="")
   
   
   result=melted_physician_integration_stats_2013%>%
@@ -1674,44 +1725,48 @@ change_stats_summarizer_non_exclusive_only_2013 = function(data,melted_physician
 
 
 
+yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[1]],"most_common_physician")
+yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[2]],"most_common_primary_care_physician")
+yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[3]],"most_common_cardiologist")
+yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[4]],"diagnosing_doc")
+yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[5]],"catheterization_doc")
+yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[6]],"angioplasty_doc")
 
-yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[1]],"physician")
-yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[2]],"primary_care_physician")
-yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[3]],"cardiologist")
-#yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
-#  yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[4]],"interventional_cardiologist")
+yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[1]],"most_common_physician")
+yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[2]],"most_common_primary_care_physician")
+yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[3]],"most_common_cardiologist")
+yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[4]],"diagnosing_doc")
+yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[5]],"catheterization_doc")
+yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[6]],"angioplasty_doc")
 
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[1]],"physician")
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[2]],"primary_care_physician")
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[3]],"cardiologist")
-#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
-#  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[4]],"interventional_cardiologist")
 
 
 
 yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only_2013(
-  yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[1]],"physician")
+  yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[1]],"most_common_physician")
 yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only_2013(
-  yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[2]],"primary_care_physician")
+  yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[2]],"most_common_primary_care_physician")
 yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only_2013(
-  yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[3]],"cardiologist")
-#yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only_2013(
-#  yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[4]],"interventional_cardiologist")
+  yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[3]],"most_common_cardiologist")
 
 yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[1]],"physician")
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[1]],"most_common_physician")
 yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[2]],"primary_care_physician")
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[2]],"most_common_primary_care_physician")
 yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[3]],"cardiologist")
-#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
-#  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[4]],"interventional_cardiologist")
+  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[3]],"most_common_cardiologist")
 
 
 
