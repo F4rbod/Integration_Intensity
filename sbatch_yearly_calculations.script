@@ -5,9 +5,9 @@
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 56
 #SBATCH --time=24:00:00
-#SBATCH --mem=2T
+#SBATCH --mem=180G
 #SBATCH --export=ALL
 
 module load R && module load nodejs && module load anaconda3 ;
 cd /work/postresearch/ ;
-Rscript Shared/Projects/Farbod/Integration_Intensity/yearly_calculations_sbatch.r
+Rscript Shared/Projects/Farbod/Integration_Intensity/mi_dates.r
