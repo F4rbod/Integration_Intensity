@@ -235,6 +235,7 @@ head(yearly_patient_conditions_carrier)
 
 
 
+
 summarise_expenditures_carrier = function(data, time_frame = 365, diagnosis){
   
   data%>%
@@ -286,6 +287,7 @@ summarise_expenditures_carrier = function(data, time_frame = 365, diagnosis){
       stable_angina = sum(is_stable_angina, na.rm = T) > 0,
       unstable_angina = sum(is_unstable_angina, na.rm = T) > 0,
       MI = sum(is_MI, na.rm = T) > 0,
+      MI_date = head(.[is_MI,date],1),
       cardiac_arrest = sum(is_cardiac_arrest, na.rm = T) > 0,
       stroke = sum(is_stroke, na.rm = T) > 0,
       hypertension = sum(is_hypertension, na.rm = T) > 0,
@@ -315,6 +317,7 @@ summarise_expenditures_carrier = function(data, time_frame = 365, diagnosis){
 
 summary = summarise_expenditures_carrier(yearly_patient_conditions_carrier , diagnosis = "unstable_angina")
 head(summary)
+
 
 
 
