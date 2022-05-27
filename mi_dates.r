@@ -2,8 +2,7 @@ setwd("/work/postresearch/Shared/Projects/Farbod")
 options(repr.matrix.max.rows=100, repr.matrix.max.cols=300)
 options(repr.plot.width = 20, repr.plot.height = 15)
 
-numcores=55
-numcores_foreach=55
+numcores=50
 
 library(tidyverse)
 library(parallel)
@@ -20,10 +19,6 @@ library(dplyr)
 
 setDTthreads(numcores)
 
-
-library(foreach)
-library(doMC)
-registerDoMC(cores=numcores_foreach)
 
 
 
@@ -97,7 +92,7 @@ diabetes_icd_10_codes=c("E08","E09","E10","E11","E13")
 
 carrier_data_all_years = read_fst(
     "carrier_data_all_years.fst", as.data.table = T)
-
+head(carrier_data_all_years)
 #outpatient_data_all_years = read_fst(
 #    "outpatient_data_all_years.fst", as.data.table = T)
 #inpatient_data_all_years = read_fst(
