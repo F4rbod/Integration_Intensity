@@ -8,9 +8,11 @@ sinfo -p short --Format=time,nodes,cpus,socketcorethread,memory,nodeai,features
 
 srun --partition=short --nodes=1 --ntasks 1 --x11 --mem=2T --time=24:00:00 --cpus-per-task 28 --export=ALL --constraint=cascadelake --pty /bin/bash
 
-srun --partition=short --nodes=1 --ntasks 1 --x11 --mem=500G --time=24:00:00 --cpus-per-task 56 --export=ALL --constraint=zen2 --pty /bin/bash
+srun --partition=short --nodes=1 --ntasks 1 --x11 --mem=500G --time=24:00:00 --cpus-per-task 128 --export=ALL --constraint=zen2 --pty /bin/bash
 
-srun --partition=express --nodes=1 --ntasks 1 --x11 --mem=256G --time=1:00:00 --cpus-per-task 28 --export=ALL --constraint=cascadelake --pty /bin/bash
+srun --partition=short --nodes=1 --ntasks 1 --x11 --mem=178G --time=8:00:00 --cpus-per-task 56 --export=ALL --constraint=cascadelake --pty /bin/bash
+
+srun --partition=express --nodes=1 --ntasks 1 --x11 --mem=8G --time=1:00:00 --cpus-per-task 22 --export=ALL --pty /bin/bash
 
 tmux
 cd /work/postresearch/Shared/Projects/Farbod
