@@ -1,4 +1,4 @@
-#packrat::init("/work/postresearch/Shared/Projects/Farbod/CaseMix")
+packrat::init("/work/postresearch/Shared/Projects/Farbod/CaseMix")
 #install.packages("remotes")
 #remotes::install_github("ellessenne/comorbidity@0.5.3")
 
