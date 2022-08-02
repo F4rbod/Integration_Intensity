@@ -1,9 +1,14 @@
+#packrat::init("/work/postresearch/Shared/Projects/Farbod/CaseMix")
+#install.packages("remotes")
+#remotes::install_github("ellessenne/comorbidity@0.5.3")
+
 setwd("/work/postresearch/Shared/Projects/Farbod")
+packrat::on()
 options(repr.matrix.max.rows=100, repr.matrix.max.cols=300)
 options(repr.plot.width = 20, repr.plot.height = 15)
 
-numcores=55
-numcores_foreach=55
+numcores=10
+numcores_foreach=10
 
 library(tidyverse)
 library(parallel)
@@ -76,8 +81,8 @@ copd_icd_10_codes=c("J40","J41","J42","J43","J44","J45","J47")
 
 #http://www.icd9data.com/2015/Volume1/240-279/270-279/278/278.htm?__hstc=93424706.cdd51240e438a5219319ce13ccb23860.1648603374124.1648603374124.1648607295327.2&__hssc=93424706.9.1648607295327&__hsfp=908776442
 #https://www.icd10data.com/ICD10CM/Codes/E00-E89/E65-E68/E66-
-obesity_icd_9_codes=c("278")
-obesity_icd_10_codes=c("E66")
+obesity_icd_9_codes=c("2780","V853","V854")
+obesity_icd_10_codes=c("E660","E669","Z683","Z684")
 
 #http://www.icd9data.com/2014/Volume1/290-319/295-299/296/default.htm
 #https://www.icd10data.com/ICD10CM/Codes/F01-F99/F30-F39
