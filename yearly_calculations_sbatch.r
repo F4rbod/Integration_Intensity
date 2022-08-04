@@ -213,7 +213,7 @@ yearly_calculator_patient_conditions = function(data) {
         substr(LINE_ICD_DGNS_CD, 0, 4) %in% obesity_icd_10_codes,
         if_else(
           LINE_ICD_DGNS_VRSN_CD == 9,
-          substr(LINE_ICD_DGNS_CD, 0, 3) %in% obesity_icd_9_codes,NA)),
+          substr(LINE_ICD_DGNS_CD, 0, 4) %in% obesity_icd_9_codes,NA)),
       is_depression= if_else(
         LINE_ICD_DGNS_VRSN_CD == 0,
         substr(LINE_ICD_DGNS_CD, 0, 3) %in% depression_icd_10_codes,
