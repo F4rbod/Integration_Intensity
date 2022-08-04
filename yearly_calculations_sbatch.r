@@ -210,7 +210,7 @@ yearly_calculator_patient_conditions = function(data) {
           substr(LINE_ICD_DGNS_CD, 0, 3) %in% copd_icd_9_codes,NA)),
       is_obesity= if_else(
         LINE_ICD_DGNS_VRSN_CD == 0,
-        substr(LINE_ICD_DGNS_CD, 0, 3) %in% obesity_icd_10_codes,
+        substr(LINE_ICD_DGNS_CD, 0, 4) %in% obesity_icd_10_codes,
         if_else(
           LINE_ICD_DGNS_VRSN_CD == 9,
           substr(LINE_ICD_DGNS_CD, 0, 3) %in% obesity_icd_9_codes,NA)),
@@ -230,8 +230,8 @@ yearly_calculator_patient_conditions = function(data) {
     as.data.table()
 }
 
-yearly_patient_conditions_carrier=yearly_calculator_patient_conditions(carrier_data_all_years)
-head(yearly_patient_conditions_carrier)
+#yearly_patient_conditions_carrier=yearly_calculator_patient_conditions(carrier_data_all_years)
+#head(yearly_patient_conditions_carrier)
 
 
 
@@ -320,8 +320,8 @@ summarise_expenditures_carrier = function(data, time_frame = 365, diagnosis){
 }
 
 
-summary = summarise_expenditures_carrier(yearly_patient_conditions_carrier , diagnosis = "unstable_angina")
-head(summary)
+#summary = summarise_expenditures_carrier(yearly_patient_conditions_carrier , diagnosis = "unstable_angina")
+#head(summary)
 
 
 
@@ -386,8 +386,8 @@ add_cardiology_related_expenditures_carrier = function(data, summary_data, time_
 }
 
 
-summary_with_cardiology_related = add_cardiology_related_expenditures_carrier(yearly_patient_conditions_carrier, summary , diagnosis = "unstable_angina")
-head(summary_with_cardiology_related)
+#summary_with_cardiology_related = add_cardiology_related_expenditures_carrier(yearly_patient_conditions_carrier, summary , diagnosis = "unstable_angina")
+#head(summary_with_cardiology_related)
 
 
 
@@ -530,8 +530,8 @@ outpatient_cost_adder=function(outpatient_and_revenue_center_data, summary_data,
   return(result)
 }
 
-summary_with_outpatient=outpatient_cost_adder(outpatient_and_revenue_center_data,summary_with_cardiology_related)
-head(summary_with_outpatient)
+#summary_with_outpatient=outpatient_cost_adder(outpatient_and_revenue_center_data,summary_with_cardiology_related)
+#head(summary_with_outpatient)
 
 
 
@@ -965,14 +965,14 @@ write_fst(yearly_calcualtions_carrier_stable_angina,
           "results_apr/yearly_calcualtions_carrier_stable_angina.fst")
 
 
-yearly_calcualtions_carrier_unstable_angina=
-yearly_calculator(data=carrier_data_all_years,
-                  mbsf_data=mbsf_data,
-                  revenue_center_outpatient_data=outpatient_and_revenue_center_data,
-                  diagnosis="unstable_angina")
-
-write_fst(yearly_calcualtions_carrier_unstable_angina,
-          "results_apr/yearly_calcualtions_carrier_unstable_angina.fst")
+#yearly_calcualtions_carrier_unstable_angina=
+#yearly_calculator(data=carrier_data_all_years,
+#                  mbsf_data=mbsf_data,
+#                  revenue_center_outpatient_data=outpatient_and_revenue_center_data,
+#                  diagnosis="unstable_angina")
+#
+#write_fst(yearly_calcualtions_carrier_unstable_angina,
+#          "results_apr/yearly_calcualtions_carrier_unstable_angina.fst")
 
 
 
@@ -985,8 +985,8 @@ write_fst(yearly_calcualtions_carrier_unstable_angina,
 outpatient_data_all_years_stable_angina=inner_join(outpatient_data_all_years, yearly_calcualtions_carrier_stable_angina,by="DESY_SORT_KEY")%>%as.data.table()
 intpatient_data_all_years_stable_angina=inner_join(inpatient_data_all_years, yearly_calcualtions_carrier_stable_angina,by="DESY_SORT_KEY")%>%as.data.table()
 
-outpatient_data_all_years_unstable_angina=inner_join(outpatient_data_all_years, yearly_calcualtions_carrier_unstable_angina,by="DESY_SORT_KEY")%>%as.data.table()
-intpatient_data_all_years_unstable_angina=inner_join(inpatient_data_all_years, yearly_calcualtions_carrier_unstable_angina,by="DESY_SORT_KEY")%>%as.data.table()
+#outpatient_data_all_years_unstable_angina=inner_join(outpatient_data_all_years, yearly_calcualtions_carrier_unstable_angina,by="DESY_SORT_KEY")%>%as.data.table()
+#intpatient_data_all_years_unstable_angina=inner_join(inpatient_data_all_years, yearly_calcualtions_carrier_unstable_angina,by="DESY_SORT_KEY")%>%as.data.table()
 
 
 #outpatient
@@ -1069,13 +1069,13 @@ inpatient_tot_yearly_stable_angina_cardiology_related=
 yearly_calculator_inpatient_cardiology_related(intpatient_data_all_years_stable_angina)
 
 
-outpatient_tot_yearly_unstable_angina=yearly_tot_outpatient(outpatient_data_all_years_unstable_angina)
-inpatient_tot_yearly_unstable_angina=yearly_calculator_inpatient(intpatient_data_all_years_unstable_angina)
-
-outpatient_tot_yearly_unstable_angina_cardiology_related=
-yearly_tot_outpatient_cardiology_related(outpatient_data_all_years_unstable_angina)
-inpatient_tot_yearly_unstable_angina_cardiology_related=
-yearly_calculator_inpatient_cardiology_related(intpatient_data_all_years_unstable_angina)
+#outpatient_tot_yearly_unstable_angina=yearly_tot_outpatient(outpatient_data_all_years_unstable_angina)
+#inpatient_tot_yearly_unstable_angina=yearly_calculator_inpatient(intpatient_data_all_years_unstable_angina)
+#
+#outpatient_tot_yearly_unstable_angina_cardiology_related=
+#yearly_tot_outpatient_cardiology_related(outpatient_data_all_years_unstable_angina)
+#inpatient_tot_yearly_unstable_angina_cardiology_related=
+#yearly_calculator_inpatient_cardiology_related(intpatient_data_all_years_unstable_angina)
 
 
 
@@ -1112,26 +1112,26 @@ yearly_calculations_stable_angina[is.na(tot_allowed_inpatient_cardiology_related
 
 
 
-#unstable angina
-
-yearly_calculations_unstable_angina=left_join(yearly_calcualtions_carrier_unstable_angina, outpatient_tot_yearly_unstable_angina, by="DESY_SORT_KEY")%>%as.data.table()
-yearly_calculations_unstable_angina=left_join(yearly_calculations_unstable_angina, inpatient_tot_yearly_unstable_angina, by="DESY_SORT_KEY")%>%as.data.table()
-
-yearly_calculations_unstable_angina=
-left_join(yearly_calculations_unstable_angina, outpatient_tot_yearly_unstable_angina_cardiology_related, by="DESY_SORT_KEY")%>%as.data.table()
-yearly_calculations_unstable_angina=
-left_join(yearly_calculations_unstable_angina, inpatient_tot_yearly_unstable_angina_cardiology_related, by="DESY_SORT_KEY")%>%as.data.table()
-
-#finding the total expenditure in one year
-yearly_calculations_unstable_angina[,total_exp:=sum(tot_allowed_carrier,tot_allowed_outpatient,tot_allowed_inpatient,na.rm = T),by=DESY_SORT_KEY]
-yearly_calculations_unstable_angina[is.na(number_of_hospitalizations)==T,`:=`(number_of_hospitalizations=0,was_hospitalized=0)]
-yearly_calculations_unstable_angina[is.na(tot_allowed_outpatient)==T,`:=`(tot_allowed_outpatient=0)]
-yearly_calculations_unstable_angina[is.na(tot_allowed_inpatient)==T,`:=`(tot_allowed_inpatient=0)]
-
-yearly_calculations_unstable_angina[,total_exp_cardiology_related:=sum(tot_allowed_carrier_cardiology_related,tot_allowed_outpatient_cardiology_related,tot_allowed_inpatient_cardiology_related,na.rm = T),by=DESY_SORT_KEY]
-yearly_calculations_unstable_angina[is.na(number_of_hospitalizations_cardiology_related)==T,`:=`(number_of_hospitalizations_cardiology_related=0,was_hospitalized_cardiology_related=0)]
-yearly_calculations_unstable_angina[is.na(tot_allowed_outpatient_cardiology_related)==T,`:=`(tot_allowed_outpatient_cardiology_related=0)]
-yearly_calculations_unstable_angina[is.na(tot_allowed_inpatient_cardiology_related)==T,`:=`(tot_allowed_inpatient_cardiology_related=0)]
+##unstable angina
+#
+#yearly_calculations_unstable_angina=left_join(yearly_calcualtions_carrier_unstable_angina, outpatient_tot_yearly_unstable_angina, by="DESY_SORT_KEY")%>%as.data.table()
+#yearly_calculations_unstable_angina=left_join(yearly_calculations_unstable_angina, inpatient_tot_yearly_unstable_angina, by="DESY_SORT_KEY")%>%as.data.table()
+#
+#yearly_calculations_unstable_angina=
+#left_join(yearly_calculations_unstable_angina, outpatient_tot_yearly_unstable_angina_cardiology_related, by="DESY_SORT_KEY")%>%as.data.table()
+#yearly_calculations_unstable_angina=
+#left_join(yearly_calculations_unstable_angina, inpatient_tot_yearly_unstable_angina_cardiology_related, by="DESY_SORT_KEY")%>%as.data.table()
+#
+##finding the total expenditure in one year
+#yearly_calculations_unstable_angina[,total_exp:=sum(tot_allowed_carrier,tot_allowed_outpatient,tot_allowed_inpatient,na.rm = T),by=DESY_SORT_KEY]
+#yearly_calculations_unstable_angina[is.na(number_of_hospitalizations)==T,`:=`(number_of_hospitalizations=0,was_hospitalized=0)]
+#yearly_calculations_unstable_angina[is.na(tot_allowed_outpatient)==T,`:=`(tot_allowed_outpatient=0)]
+#yearly_calculations_unstable_angina[is.na(tot_allowed_inpatient)==T,`:=`(tot_allowed_inpatient=0)]
+#
+#yearly_calculations_unstable_angina[,total_exp_cardiology_related:=sum(tot_allowed_carrier_cardiology_related,tot_allowed_outpatient_cardiology_related,tot_allowed_inpatient_cardiology_related,na.rm = T),by=DESY_SORT_KEY]
+#yearly_calculations_unstable_angina[is.na(number_of_hospitalizations_cardiology_related)==T,`:=`(number_of_hospitalizations_cardiology_related=0,was_hospitalized_cardiology_related=0)]
+#yearly_calculations_unstable_angina[is.na(tot_allowed_outpatient_cardiology_related)==T,`:=`(tot_allowed_outpatient_cardiology_related=0)]
+#yearly_calculations_unstable_angina[is.na(tot_allowed_inpatient_cardiology_related)==T,`:=`(tot_allowed_inpatient_cardiology_related=0)]
 
 
 
@@ -1378,9 +1378,9 @@ melted_physician_integration_stats_stable_angina=add_integration_status(
   data = yearly_calculations_stable_angina,
   physician_integration_stats = physician_integration_stats)
 
-melted_physician_integration_stats_unstable_angina=add_integration_status(
-  data = yearly_calculations_unstable_angina,
-  physician_integration_stats = physician_integration_stats)
+#melted_physician_integration_stats_unstable_angina=add_integration_status(
+#  data = yearly_calculations_unstable_angina,
+#  physician_integration_stats = physician_integration_stats)
 
 
 
@@ -1481,9 +1481,9 @@ melted_physician_integration_stats_2013_stable_angina=add_integration_status_201
   data = yearly_calculations_stable_angina,
   physician_integration_stats = physician_integration_stats)
 
-melted_physician_integration_stats_2013_unstable_angina=add_integration_status_2013(
-  data = yearly_calculations_unstable_angina,
-  physician_integration_stats = physician_integration_stats)
+#melted_physician_integration_stats_2013_unstable_angina=add_integration_status_2013(
+#  data = yearly_calculations_unstable_angina,
+#  physician_integration_stats = physician_integration_stats)
 
 
 
@@ -1746,18 +1746,18 @@ yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
 yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only(
   yearly_calculations_stable_angina,melted_physician_integration_stats_stable_angina[[6]],"angioplasty_doc")
 
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[1]],"most_common_physician")
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[2]],"most_common_primary_care_physician")
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[3]],"most_common_cardiologist")
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[4]],"diagnosing_doc")
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[5]],"catheterization_doc")
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[6]],"angioplasty_doc")
+#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+#  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[1]],"most_common_physician")
+#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+#  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[2]],"most_common_primary_care_physician")
+#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+#  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[3]],"most_common_cardiologist")
+#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+#  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[4]],"diagnosing_doc")
+#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+#  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[5]],"catheterization_doc")
+#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only(
+#  yearly_calculations_unstable_angina,melted_physician_integration_stats_unstable_angina[[6]],"angioplasty_doc")
 
 
 
@@ -1769,32 +1769,32 @@ yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only_201
 yearly_calculations_stable_angina=change_stats_summarizer_non_exclusive_only_2013(
   yearly_calculations_stable_angina,melted_physician_integration_stats_2013_stable_angina[[3]],"most_common_cardiologist")
 
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[1]],"most_common_physician")
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[2]],"most_common_primary_care_physician")
-yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
-  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[3]],"most_common_cardiologist")
+#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
+#  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[1]],"most_common_physician")
+#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
+#  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[2]],"most_common_primary_care_physician")
+#yearly_calculations_unstable_angina=change_stats_summarizer_non_exclusive_only_2013(
+#  yearly_calculations_unstable_angina,melted_physician_integration_stats_2013_unstable_angina[[3]],"most_common_cardiologist")
 
 
 
 head(yearly_calculations_stable_angina)
-head(yearly_calculations_unstable_angina)
+#head(yearly_calculations_unstable_angina)
 
 
 
 
 write_fst(yearly_calculations_stable_angina,
           "results_apr/yearly_calculations_stable_angina_with_integration.fst") 
-write_fst(yearly_calculations_unstable_angina,
-          "results_apr/yearly_calculations_unstable_angina_with_integration.fst")
+#write_fst(yearly_calculations_unstable_angina,
+#          "results_apr/yearly_calculations_unstable_angina_with_integration.fst")
 write_fst(physician_integration_stats,
           "results_apr/physician_integration_stats.fst")
 
 #I am also saving the csv to be able to share the results with colleagues later.
 write.csv(yearly_calculations_stable_angina,
           "results_apr/yearly_calculations_stable_angina_with_integration.csv") 
-write.csv(yearly_calculations_unstable_angina,
-          "results_apr/yearly_calculations_unstable_angina_with_integration.csv")
+#write.csv(yearly_calculations_unstable_angina,
+#          "results_apr/yearly_calculations_unstable_angina_with_integration.csv")
 
 
