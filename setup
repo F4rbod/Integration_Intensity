@@ -29,4 +29,6 @@ tmux attach-session -t 0
 
 #srun --partition=gpu --nodes=1 --ntasks=1 --export=ALL --gres=gpu:1 --mem=1T --cpus-per-task 8 --x11 --time=08:00:00 --pty /bin/bash
 
+ssh -L 8890:localhost:8890 alinezhad.f@login.discovery.neu.edu ssh -L 8890:localhost:8890 -N alinezhad.f@d0005
 
+ssh -Y -t -t alinezhad.f@login.discovery.neu.edu -L 8890:localhost:8890 ssh d0005 -L 8890:localhost:8890
